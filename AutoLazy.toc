@@ -1,0 +1,11 @@
+## Interface: 11200
+## Title: AutoLazy
+## Notes: High-performance dungeon loot automation, continuous repeatable quest turn-ins, Floating Addon Tray, and Reversible System Bloat Suppression.
+## Author: Fostercare5988
+## Version: 3.3.0
+## SavedVariables: AutoLazyDB
+## X-Category: Automation & Quality of Life
+## X-Website: https://github.com/Fostercare5988/AutoLazy
+
+AutoLazy.lua
+AutoLazy_GUI.lua
