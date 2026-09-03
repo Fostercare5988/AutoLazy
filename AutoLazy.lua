@@ -1,20 +1,20 @@
 --[[
-    AutoLazy v3.3.0
+    AutoLazy v3.4.0
     Author & Maintainer: Fostercare5988
-    Target: World of Warcraft 1.12.1 (Vanilla Enhanced Stack: ClassicAPI, SuperWoW, NamPower, UnitXP SP3, DXVK)
+    Target: World of Warcraft 1.12.1 (Vanilla Enhanced Stack: ClassicAPI v1.13.3+, SuperWoW 2.2+, NamPower, UnitXP SP3, DXVK)
     Description: High-performance dungeon loot automation, continuous repeatable quest turn-ins, Floating Addon Tray, and Reversible System Bloat Suppression.
 ]]
 
--- Strict Engine Dependency Guard
+-- Strict Engine Dependency Guard (Mandatory ClassicAPI v1.13.3+ & SuperWoW v2.2+)
 if not (CLASSIC_API_VERSION and SUPERWOW_VERSION) then
     if DEFAULT_CHAT_FRAME then
-        DEFAULT_CHAT_FRAME:AddMessage("|cffff2020[AutoLazy Fatal Error]|r AutoLazy requires ClassicAPI.dll & SuperWoW! Please ensure ClassicAPI.dll and SuperWoW are loaded.", 1, 0.2, 0.2)
+        DEFAULT_CHAT_FRAME:AddMessage("|cffff2020[AutoLazy Fatal Error]|r AutoLazy requires ClassicAPI.dll (v1.13.3+) & SuperWoW (v2.2+)! Please ensure both DLLs are loaded.", 1, 0.2, 0.2)
     end
     return
 end
 
 local addonName = "AutoLazy"
-local addonVersion = "3.3.0"
+local addonVersion = "3.4.0"
 
 AutoLazy = {}
 
@@ -228,7 +228,11 @@ function AutoLazy_ResolveCurrentDungeon()
 end
 
 local function UpdateZoneCache()
+    local prevKey = CachedDungeonKey
     CachedDungeonKey, CachedDungeonCfg, CachedDungeonDef = AutoLazy_ResolveCurrentDungeon()
+    if prevKey ~= CachedDungeonKey and table.wipe then
+        table.wipe(ItemEvaluationCache)
+    end
 end
 
 function AutoLazy_IsFarmItem(itemName)
@@ -319,9 +323,9 @@ local function MatchesFrameKeywords(f, nameKeywords, texKeywords, textKeywords)
     end
 
     if (texKeywords or textKeywords) and f.GetRegions then
-        local regions = { f:GetRegions() }
-        for _, r in ipairs(regions) do
-            if texKeywords and r and r.GetTexture then
+        local function InspectRegions(r, ...)
+            if not r then return false end
+            if texKeywords and r.GetTexture then
                 local tex = r:GetTexture()
                 if tex and type(tex) == "string" then
                     local lTex = string.lower(tex)
@@ -330,7 +334,7 @@ local function MatchesFrameKeywords(f, nameKeywords, texKeywords, textKeywords)
                     end
                 end
             end
-            if textKeywords and r and r.GetText then
+            if textKeywords and r.GetText then
                 local txt = r:GetText()
                 if txt and type(txt) == "string" then
                     local lTxt = string.lower(txt)
@@ -339,7 +343,9 @@ local function MatchesFrameKeywords(f, nameKeywords, texKeywords, textKeywords)
                     end
                 end
             end
+            return InspectRegions(...)
         end
+        if InspectRegions(f:GetRegions()) then return true end
     end
     return false
 end
@@ -437,16 +443,20 @@ function AutoLazy_ApplySystemIconToggles()
         if lf then SetFrameSuppressed(lf, hideLfg) end
     end
 
+    local function ScanChildrenForBloat(child, ...)
+        if not child then return end
+        if not BlizzardCoreFrames[child:GetName() or ""] then
+            if IsRadioFrame(child) then SetFrameSuppressed(child, hideRadio)
+            elseif IsLfgFrame(child) then SetFrameSuppressed(child, hideLfg) end
+        end
+        return ScanChildrenForBloat(...)
+    end
+
     local parents = { Minimap, MinimapBackdrop, MinimapCluster, trayFrame }
-    for _, parent in ipairs(parents) do
+    for i = 1, #parents do
+        local parent = parents[i]
         if parent and parent.GetChildren then
-            local children = { parent:GetChildren() }
-            for _, child in ipairs(children) do
-                if child and not BlizzardCoreFrames[child:GetName() or ""] then
-                    if IsRadioFrame(child) then SetFrameSuppressed(child, hideRadio)
-                    elseif IsLfgFrame(child) then SetFrameSuppressed(child, hideLfg) end
-                end
-            end
+            ScanChildrenForBloat(parent:GetChildren())
         end
     end
 
@@ -548,13 +558,17 @@ function AutoLazy_FindAddonButtons()
         if f and HasRenderableVisual(f) then RegisterButton(f, true) end
     end
 
+    local function ScanChildrenForAddons(child, ...)
+        if not child then return end
+        if child:IsObjectType("Button") then RegisterButton(child, false) end
+        return ScanChildrenForAddons(...)
+    end
+
     local parents = { Minimap, MinimapBackdrop, MinimapCluster, trayFrame }
-    for _, parent in ipairs(parents) do
+    for i = 1, #parents do
+        local parent = parents[i]
         if parent and parent.GetChildren then
-            local children = { parent:GetChildren() }
-            for _, child in ipairs(children) do
-                if child and child:IsObjectType("Button") then RegisterButton(child, false) end
-            end
+            ScanChildrenForAddons(parent:GetChildren())
         end
     end
 
