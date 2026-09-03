@@ -6,10 +6,10 @@
 [![SuperWoW: v2.2+](https://img.shields.io/badge/SuperWoW-v2.2+-brightgreen.svg)](https://github.com/balakethelock/SuperWoW)
 [![NamPower: v4.6.2+](https://img.shields.io/badge/NamPower-v4.6.2+-blueviolet.svg)](https://github.com/Emyrk/nampower)
 [![UnitXP: SP3](https://img.shields.io/badge/UnitXP-SP3-teal.svg)](https://codeberg.org/konaka/UnitXP_SP3)
-[![DXVK: 144Hz+](https://img.shields.io/badge/DXVK-144Hz+-red.svg)](https://github.com/doitsujin/dxvk)
+[![DXVK: Vulkan](https://img.shields.io/badge/DXVK-Vulkan-red.svg)](https://github.com/doitsujin/dxvk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**AutoLazy v3.4.0** is an enterprise-grade, zero-bloat dungeon automation and quality-of-life suite engineered natively for **World of Warcraft 1.12.1 (Build 5875)** running on the **Enhanced Client Extension Stack** (**ClassicAPI v1.13.3+**, **SuperWoW v2.2+**, **NamPower v4.6.2+**, **UnitXP SP3**, and **DXVK 144Hz+**).
+**AutoLazy v3.4.0** is an enterprise-grade, zero-bloat dungeon automation and quality-of-life suite engineered natively for **World of Warcraft 1.12.1 (Build 5875)** running on the **Enhanced Client Extension Stack** (**ClassicAPI v1.13.3+**, **SuperWoW v2.2+**, **NamPower v4.6.2+**, **UnitXP SP3**, and **DXVK**).
 
 It provides intelligent per-dungeon automated loot rolling, global BoP auto-confirmation, continuous Shift-hold repeatable quest chaining, a draggable floating hub with popup Addon Tray, and reversible client bloat suppression (including suppression of custom server pirate radio and group finder elements).
 
@@ -27,7 +27,7 @@ AutoLazy is engineered around strict low-level system integration:
 | **SuperWoW** | `v2.2+` | Direct memory state access, OS-level window alerting, and zero-latency packet synchronization. |
 | **NamPower** | `v4.6.2+` | Microsecond-precision combat pipeline and frame-0 event dispatching for loot rolling and quest chaining. |
 | **UnitXP** | `SP3` | High-precision unit state inspection and target validation. |
-| **DXVK** | `Latest` | Decoupled high-refresh 144Hz+ rendering with zero garbage collection heap churn. |
+| **DXVK** | `Latest` | Decoupled high-refresh frame pacing with zero garbage collection heap churn. |
 
 ### Elimination of 2006 Legacy Techniques
 - **Zero OnUpdate Polling**: Frame-based `OnUpdate` polling loops are eradicated; all periodic scans run on C++ hardware tickers.
