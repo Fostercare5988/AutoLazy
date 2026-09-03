@@ -481,19 +481,21 @@ local function HasRenderableVisual(f)
         end
     end
     if f.GetRegions then
-        local regions = { f:GetRegions() }
-        for _, r in ipairs(regions) do
-            if r and r.GetTexture then
-                local tex = r:GetTexture()
+        local function InspectContentRegions(r1, ...)
+            if not r1 then return false end
+            if r1.GetTexture then
+                local tex = r1:GetTexture()
                 if tex and type(tex) == "string" and tex ~= "" and not string.find(string.lower(tex), "tooltip") then
                     return true
                 end
             end
-            if r and r.GetText then
-                local txt = r:GetText()
+            if r1.GetText then
+                local txt = r1:GetText()
                 if txt and type(txt) == "string" and txt ~= "" then return true end
             end
+            return InspectContentRegions(...)
         end
+        if InspectContentRegions(f:GetRegions()) then return true end
     end
     return false
 end
