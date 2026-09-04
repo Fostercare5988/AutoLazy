@@ -1,6 +1,6 @@
 ## Interface: 11200
 ## Title: AutoLazy
-## Notes: High-performance dungeon loot automation, continuous repeatable quest turn-ins, Floating Addon Tray, and Reversible System Bloat Suppression (ClassicAPI v1.13.3+, SuperWoW 2.2+, NamPower 4.6.2+, UnitXP SP3, DXVK).
+## Notes: High-performance dungeon loot automation, continuous repeatable quest turn-ins, Floating Addon Tray, and Reversible System Bloat Suppression (ClassicAPI v1.13.3+, SuperWoW 2.2+, NamPower 4.6.3+, UnitXP SP3, DXVK).
 ## Author: Fostercare5988
 ## Version: 3.4.0
 ## SavedVariables: AutoLazyDB

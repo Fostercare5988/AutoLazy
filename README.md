@@ -4,12 +4,12 @@
 [![Version: 3.4.0](https://img.shields.io/badge/Version-3.4.0-blue.svg)](https://github.com/Fostercare5988/AutoLazy/releases)
 [![ClassicAPI: v1.13.3+](https://img.shields.io/badge/ClassicAPI-v1.13.3+-green.svg)](https://github.com/brues-code/ClassicAPI)
 [![SuperWoW: v2.2+](https://img.shields.io/badge/SuperWoW-v2.2+-brightgreen.svg)](https://github.com/balakethelock/SuperWoW)
-[![NamPower: v4.6.2+](https://img.shields.io/badge/NamPower-v4.6.2+-blueviolet.svg)](https://github.com/Emyrk/nampower)
+[![NamPower: v4.6.3+](https://img.shields.io/badge/NamPower-v4.6.3+-blueviolet.svg)](https://github.com/Emyrk/nampower)
 [![UnitXP: SP3](https://img.shields.io/badge/UnitXP-SP3-teal.svg)](https://codeberg.org/konaka/UnitXP_SP3)
 [![DXVK: Vulkan](https://img.shields.io/badge/DXVK-Vulkan-red.svg)](https://github.com/doitsujin/dxvk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**AutoLazy v3.4.0** is an enterprise-grade, zero-bloat dungeon automation and quality-of-life suite engineered natively for **World of Warcraft 1.12.1 (Build 5875)** running on the **Enhanced Client Extension Stack** (**ClassicAPI v1.13.3+**, **SuperWoW v2.2+**, **NamPower v4.6.2+**, **UnitXP SP3**, and **DXVK**).
+**AutoLazy v3.4.0** is an enterprise-grade, zero-bloat dungeon automation and quality-of-life suite engineered natively for **World of Warcraft 1.12.1 (Build 5875)** running on the **Enhanced Client Extension Stack** (**ClassicAPI v1.13.3+**, **SuperWoW v2.2+**, **NamPower v4.6.3+**, **UnitXP SP3**, and **DXVK**).
 
 It provides intelligent per-dungeon automated loot rolling, global BoP auto-confirmation, continuous Shift-hold repeatable quest chaining, a draggable floating hub with popup Addon Tray, and reversible client bloat suppression (including suppression of custom server pirate radio and group finder elements).
 
@@ -25,7 +25,7 @@ AutoLazy is engineered around strict low-level system integration:
 | :--- | :--- | :--- |
 | **ClassicAPI** | `v1.13.3+` | C++ hardware timers (`C_Timer.After`), modern structured quest information (`C_GossipInfo`), native `table.wipe` memory recycling, and source-rewritten Lua 5.1 syntax. |
 | **SuperWoW** | `v2.2+` | Direct memory state access, OS-level window alerting, and zero-latency packet synchronization. |
-| **NamPower** | `v4.6.2+` | Microsecond-precision combat pipeline and frame-0 event dispatching for loot rolling and quest chaining. |
+| **NamPower** | `v4.6.3+` | Microsecond-precision combat pipeline and frame-0 event dispatching for loot rolling and quest chaining. |
 | **UnitXP** | `SP3` | High-precision unit state inspection and target validation. |
 | **DXVK** | `Latest` | Decoupled high-refresh frame pacing with zero garbage collection heap churn. |
 
@@ -97,7 +97,7 @@ Use `/al` or `/autolazy` (or `/ar`):
 1. **World of Warcraft 1.12.1** (Build 5875).
 2. [**ClassicAPI v1.13.3+**](https://github.com/brues-code/ClassicAPI) (`ClassicAPI.dll`).
 3. [**SuperWoW v2.2+**](https://github.com/balakethelock/SuperWoW) (`SuperWoW.dll`).
-4. [**NamPower v4.6.2+**](https://github.com/Emyrk/nampower) (`nampower.dll`).
+4. [**NamPower v4.6.3+**](https://github.com/Emyrk/nampower) (`nampower.dll`).
 5. [**UnitXP SP3**](https://codeberg.org/konaka/UnitXP_SP3) (`UnitXP_SP3.dll`).
 6. [**DXVK**](https://github.com/doitsujin/dxvk) & [**VanillaFixes**](https://github.com/hannesmann/vanillafixes).
 
