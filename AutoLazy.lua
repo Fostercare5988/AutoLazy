@@ -1,14 +1,14 @@
 --[[
     AutoLazy v3.4.0
     Author & Maintainer: Fostercare5988
-    Target: World of Warcraft 1.12.1 (Vanilla Enhanced Stack: ClassicAPI v1.13.3+, SuperWoW 2.2+, NamPower, UnitXP SP3, DXVK)
+    Target: World of Warcraft 1.12.1 (Vanilla Enhanced Stack: ClassicAPI v1.13.4+, SuperWoW 2.2+, NamPower, UnitXP SP3, DXVK)
     Description: High-performance dungeon loot automation, continuous repeatable quest turn-ins, Floating Addon Tray, and Reversible System Bloat Suppression.
 ]]
 
--- Strict Engine Dependency Guard (Mandatory ClassicAPI v1.13.3+ & SuperWoW v2.2+)
+-- Strict Engine Dependency Guard (Mandatory ClassicAPI v1.13.4+ & SuperWoW v2.2+)
 if not (CLASSIC_API_VERSION and SUPERWOW_VERSION) then
     if DEFAULT_CHAT_FRAME then
-        DEFAULT_CHAT_FRAME:AddMessage("|cffff2020[AutoLazy Fatal Error]|r AutoLazy requires ClassicAPI.dll (v1.13.3+) & SuperWoW (v2.2+)! Please ensure both DLLs are loaded.", 1, 0.2, 0.2)
+        DEFAULT_CHAT_FRAME:AddMessage("|cffff2020[AutoLazy Fatal Error]|r AutoLazy requires ClassicAPI.dll (v1.13.4+) & SuperWoW (v2.2+)! Please ensure both DLLs are loaded.", 1, 0.2, 0.2)
     end
     return
 end
