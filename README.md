@@ -1,7 +1,7 @@
 # AutoLazy
 
 [![Interface: 1.12.1](https://img.shields.io/badge/Interface-1.12.1%20(5875)-orange.svg)](https://github.com/Fostercare5988/AutoLazy)
-[![Version: 3.4.0](https://img.shields.io/badge/Version-3.4.0-blue.svg)](https://github.com/Fostercare5988/AutoLazy/releases)
+[![Version: 3.5.0](https://img.shields.io/badge/Version-3.5.0-blue.svg)](https://github.com/Fostercare5988/AutoLazy/releases)
 [![ClassicAPI: v1.13.4+](https://img.shields.io/badge/ClassicAPI-v1.13.4+-green.svg)](https://github.com/brues-code/ClassicAPI)
 [![SuperWoW: v2.2+](https://img.shields.io/badge/SuperWoW-v2.2+-brightgreen.svg)](https://github.com/balakethelock/SuperWoW)
 [![NamPower: v4.6.3+](https://img.shields.io/badge/NamPower-v4.6.3+-blueviolet.svg)](https://github.com/Emyrk/nampower)
@@ -9,7 +9,7 @@
 [![DXVK: Vulkan](https://img.shields.io/badge/DXVK-Vulkan-red.svg)](https://github.com/doitsujin/dxvk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**AutoLazy v3.4.0** is an enterprise-grade, zero-bloat dungeon automation and quality-of-life suite engineered natively for **World of Warcraft 1.12.1 (Build 5875)** running on the **Enhanced Client Extension Stack** (**ClassicAPI v1.13.4+**, **SuperWoW v2.2+**, **NamPower v4.6.3+**, **UnitXP SP3**, and **DXVK**).
+**AutoLazy v3.5.0** is an enterprise-grade, zero-bloat dungeon automation and quality-of-life suite engineered natively for **World of Warcraft 1.12.1 (Build 5875)** running on the **Enhanced Client Extension Stack** (**ClassicAPI v1.13.4+**, **SuperWoW v2.2+**, **NamPower v4.6.3+**, **UnitXP SP3**, and **DXVK**).
 
 It provides intelligent per-dungeon automated loot rolling, global BoP auto-confirmation, continuous Shift-hold repeatable quest chaining, a draggable floating hub with popup Addon Tray, and reversible client bloat suppression (including suppression of custom server pirate radio and group finder elements).
 
@@ -117,11 +117,15 @@ Use `/al` or `/autolazy` (or `/ar`):
 
 ## 📜 Changelog
 
+### v3.5.0
+- **Engine Startup Guard Enforcement**: Upgraded engine dependency guards across all modules (`AutoLazy.lua` and `AutoLazy_GUI.lua`) to strictly enforce `MIN_CLASSIC_API = 11304` (`v1.13.4+`) and `SUPERWOW_VERSION` (`v2.2+`).
+- **Performance & Zero-GC Audit**: Re-verified zero-allocation register tail recursion and hardware C++ timer chaining across all UI discovery cycles.
+
 ### v3.4.0
 - **Zero-GC Register Recursion**: Eliminated temporary `{ parent:GetChildren() }` and `{ f:GetRegions() }` table instantiations during addon tray button discovery and bloat suppression, replacing them with register-based tail recursion.
 - **Universal Engine Guard**: Enforced strict dependency checks across both module files (`AutoLazy.lua`, `AutoLazy_GUI.lua`) for ClassicAPI v1.13.4+ and SuperWoW v2.2+.
 - **Cache Management**: Added native C++ `table.wipe` resets on `ItemEvaluationCache` during dungeon zone transitions.
-- **Updated Documentation**: Fully aligned README with Master System Prompt Rule H5 and ClassicAPI v1.13.4+ standards.
+- **Updated Documentation**: Fully aligned README with ClassicAPI v1.13.4+ and SuperWoW standards.
 
 ### v3.3.0
 - **Dual-Path Global BoP Auto-Confirmation**: Implemented native `LOOT_BIND_CONFIRM` direct corpse looting alongside `CONFIRM_LOOT_ROLL` group dungeon rolls.
