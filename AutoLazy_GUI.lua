@@ -12,7 +12,7 @@ end
 
 local panel = CreateFrame("Frame", "AutoLazy_OptionsFrame", UIParent)
 panel:SetWidth(480)
-panel:SetHeight(430)
+panel:SetHeight(490)
 panel:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 panel:SetFrameStrata("DIALOG")
 panel:SetToplevel(true)
@@ -260,13 +260,16 @@ end)
 generalWidgets["AnnounceChat"] = cbChat
 
 local secDungeons = tabLoot:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-secDungeons:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 36, -162)
+secDungeons:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 36, -158)
 secDungeons:SetText("|cFFFFD100Dungeon Rules|r")
 
 local dungeonList = {
-    { key = "The Black Morass", name = "The Black Morass", items = "(Corrupted Sand)", y = -184 },
-    { key = "Zul'Gurub", name = "Zul'Gurub", items = "(Coins & Bijous)", y = -232 },
-    { key = "Ruins of Ahn'Qiraj", name = "Ruins of Ahn'Qiraj", items = "(Scarabs, Idols, Keys)", y = -280 },
+    { key = "The Black Morass", name = "The Black Morass", items = "(Corrupted Sand)", y = -178 },
+    { key = "Zul'Gurub", name = "Zul'Gurub", items = "(Coins & Bijous)", y = -218 },
+    { key = "Ruins of Ahn'Qiraj", name = "Ruins of Ahn'Qiraj", items = "(Scarabs, Idols, Keys)", y = -258 },
+    { key = "Stratholme", name = "Stratholme", items = "(Scourgestones, Water)", y = -298 },
+    { key = "Scholomance", name = "Scholomance", items = "(Scourgestones, Runes)", y = -338 },
+    { key = "Blackrock Depths", name = "Blackrock Depths", items = "(Dark Iron Residue, Ore)", y = -378 },
 }
 
 for i, d in ipairs(dungeonList) do

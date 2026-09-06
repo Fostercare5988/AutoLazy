@@ -1,7 +1,7 @@
 # AutoLazy
 
 [![Interface: 1.12.1](https://img.shields.io/badge/Interface-1.12.1%20(5875)-orange.svg)](https://github.com/Fostercare5988/AutoLazy)
-[![Version: 3.5.0](https://img.shields.io/badge/Version-3.5.0-blue.svg)](https://github.com/Fostercare5988/AutoLazy/releases)
+[![Version: 3.6.0](https://img.shields.io/badge/Version-3.6.0-blue.svg)](https://github.com/Fostercare5988/AutoLazy/releases)
 [![ClassicAPI: v1.14.0+](https://img.shields.io/badge/ClassicAPI-v1.14.0+-green.svg)](https://github.com/brues-code/ClassicAPI)
 [![SuperWoW: v2.2+](https://img.shields.io/badge/SuperWoW-v2.2+-brightgreen.svg)](https://github.com/balakethelock/SuperWoW)
 [![NamPower: v4.6.3+](https://img.shields.io/badge/NamPower-v4.6.3+-blueviolet.svg)](https://github.com/Emyrk/nampower)
@@ -9,7 +9,7 @@
 [![DXVK: Vulkan](https://img.shields.io/badge/DXVK-Vulkan-red.svg)](https://github.com/doitsujin/dxvk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**AutoLazy v3.5.0** is an enterprise-grade, zero-bloat dungeon automation and quality-of-life suite engineered natively for **World of Warcraft 1.12.1 (Build 5875)** running on the **Enhanced Client Extension Stack** (**ClassicAPI v1.14.0+**, **SuperWoW v2.2+**, **NamPower v4.6.3+**, **UnitXP SP3**, and **DXVK**).
+**AutoLazy v3.6.0** is an enterprise-grade, zero-bloat dungeon automation and quality-of-life suite engineered natively for **World of Warcraft 1.12.1 (Build 5875)** running on the **Enhanced Client Extension Stack** (**ClassicAPI v1.14.0+**, **SuperWoW v2.2+**, **NamPower v4.6.3+**, **UnitXP SP3**, and **DXVK**).
 
 It provides intelligent per-dungeon automated loot rolling, global BoP auto-confirmation, continuous Shift-hold repeatable quest chaining, a draggable floating hub with popup Addon Tray, and reversible client bloat suppression (including suppression of custom server pirate radio and group finder elements).
 
@@ -56,16 +56,30 @@ AutoLazy is engineered around strict low-level system integration:
   - **The Black Morass**: *(Corrupted Sand)*
   - **Zul'Gurub**: *(9 Tribal Coins & 9 Hakkari Bijous)*
   - **Ruins of Ahn'Qiraj**: *(8 Scarabs, 9 Idols, Coffer Keys & Shards)*
+  - **Stratholme**: *(Scourgestones & Holy Water)*
+  - **Scholomance**: *(Scourgestones & Dark Runes)*
+  - **Blackrock Depths**: *(Dark Iron Residue & Dark Iron Ore)*
 - **Farm Items ONLY**: Only auto-rolls on spam farm and currency drops while ignoring weapons and armor so you can roll manually.
 - **Dual-Path Global BoP Auto-Confirm**: Automatically confirms both dungeon roll popups (`CONFIRM_LOOT_ROLL`) and direct corpse pickup dialogs (`LOOT_BIND_CONFIRM`) globally.
 - **Chat Alerts**: Announces automated rolls on dropped items in chat.
 
 ### 3. Continuous Repeatable Quest Automation
-- **Continuous Repeatable Chain Hand-in**: Hold **Shift** while talking to an NPC (e.g. Witch Doctor Mau'ari, Thorium Brotherhood, Argent Dawn, ZG Bijous) to continuously turn in all repeatable quests in one uninterrupted sequence without clicking over and over.
+- **Continuous Repeatable Chain Hand-in**: Hold **Shift** while talking to an NPC to continuously turn in all repeatable quests in one uninterrupted sequence without clicking over and over.
+- **Comprehensive Turn-In Coverage**:
+  - **Argent Dawn**: Minion's, Invader's, Corruptor's Scourgestones, Craftsman's Writs, Healthy Dragon Scales, and bone/crypt parts.
+  - **Winterspring E'ko**: Witch Doctor Mau'ari (Winterfall, Frostmaul, Shardtooth, Frostsaber, Wildkin, Chillwind, Ice Thistle).
+  - **Thorium Brotherhood**: Dark Iron Residue, Dark Iron Ore, Fiery/Lava Cores, Blood of the Mountain, and Searing Gorge turn-ins.
+  - **Cenarion Circle**: Encrypted Twilight Texts, Abyssal Crests/Signets/Scepters, and combat/tactical/logistics badges.
+  - **Timbermaw Hold**: Deadwood Headdress Feathers, Winterfall Spirit Beads, and Water Elemental Cores.
+  - **Zandalar Tribe**: Hakkari Bijous (direct Altar of Zanza destruction & quests) and Tribal Coins.
+  - **Alterac Valley & Battlegrounds**: Armor Scraps, Soldier's Blood, and Lieutenant's Flesh.
+  - **Un'Goro & Factions**: Morrowgrain, Bloodpetal Sprouts, and repeatable city Runecloth donations.
+- **Smart Inventory & Bag Prioritization**: Automatically prioritizes available repeatable quests for which you currently have items in your bags (bypassing trivial/gray quest level penalties).
+- **Direct Gossip Turn-Ins**: Automatically activates repeatable turn-in options from direct gossip dialogs (e.g. Altar of Zanza, Lokhtos Darkbargainer, Alterac Valley).
 - **Auto-Turn In**: Instantly turns in completed quests (with 0 or 1 reward choice).
 - **Auto-Accept**: Automatically accepts newly offered quests.
 - **Reward Safety**: Automatically pauses if multiple equipment rewards exist, allowing you to choose your desired gear manually.
-- **Always Active Mode**: Optional toggle if you prefer automated quest handling on all NPC interactions without holding Shift.
+- **Always Active Mode**: Optional toggle (`/al always`) if you prefer automated quest handling on all NPC interactions without holding Shift.
 
 ---
 
