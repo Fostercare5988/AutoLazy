@@ -19,12 +19,12 @@ panel:SetToplevel(true)
 panel:EnableMouse(true)
 panel:SetMovable(true)
 panel:RegisterForDrag("LeftButton")
-panel:SetScript("OnDragStart", function() this:StartMoving() end)
-panel:SetScript("OnDragStop", function() this:StopMovingOrSizing() end)
+panel:SetScript("OnDragStart", function() panel:StartMoving() end)
+panel:SetScript("OnDragStop", function() panel:StopMovingOrSizing() end)
 panel:Hide()
 
 -- Allow closing with ESC key
-tinsert(UISpecialFrames, "AutoLazy_OptionsFrame")
+table.insert(UISpecialFrames, "AutoLazy_OptionsFrame")
 
 -- Standard Vanilla Dialog Backdrop
 panel:SetBackdrop({
@@ -76,8 +76,9 @@ local function CreateCheckbox(name, labelText, tooltipText, parentFrame, point, 
     end
 
     if tooltipText then
-        cb:SetScript("OnEnter", function()
-            GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+        cb:SetScript("OnEnter", function(self)
+            local target = self or this or cb
+            GameTooltip:SetOwner(target, "ANCHOR_RIGHT")
             GameTooltip:SetText(tooltipText, 1, 1, 1, 1, 1)
             GameTooltip:Show()
         end)
@@ -86,8 +87,9 @@ local function CreateCheckbox(name, labelText, tooltipText, parentFrame, point, 
         end)
     end
 
-    cb:SetScript("OnClick", function()
-        if onClick then onClick(this) end
+    cb:SetScript("OnClick", function(self)
+        local target = self or this or cb
+        if onClick then onClick(target) end
         if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end
     end)
 

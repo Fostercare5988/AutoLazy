@@ -1,5 +1,5 @@
 --[[
-    AutoLazy v3.4.0
+    AutoLazy v3.6.1
     Author & Maintainer: Fostercare5988
     Target: World of Warcraft 1.12.1 (Vanilla Enhanced Stack: ClassicAPI v1.14.0+, SuperWoW 2.2+, NamPower, UnitXP SP3, DXVK)
     Description: High-performance dungeon loot automation, continuous repeatable quest turn-ins, Floating Addon Tray, and Reversible System Bloat Suppression.
@@ -17,9 +17,15 @@ if not (CLASSIC_API_VERSION and SUPERWOW_VERSION) or
 end
 
 local addonName = "AutoLazy"
-local addonVersion = "3.6.0"
+local addonVersion = "3.6.1"
 
 AutoLazy = {}
+
+-- Standard library and engine upvalues for high-frequency execution
+local string_find, string_lower = string.find, string.lower
+local math_min, math_ceil, math_floor = math.min, math.ceil, math.floor
+local table_insert, table_wipe = table.insert, table.wipe
+local type, select, pairs, ipairs, getglobal = type, select, pairs, ipairs, getglobal
 
 -- 1.12.1 Binary Loot Roll Constants
 local LOOT_ROLL_PASS  = 0
@@ -389,19 +395,47 @@ local RADIO_TEXT  = { "radio", "pirate", "tune in", "tune out", "booty bay", "st
 local LFG_NAMES   = { "tw_lfg", "twlfg", "meetingstone", "groupfinder", "lfgminimap", "lftminimap" }
 local LFG_TEX     = { "lfg", "lft", "meetingstone", "eye" }
 
+local function InspectRegionsIter(texKeywords, textKeywords, ...)
+    local count = select("#", ...)
+    for i = 1, count do
+        local r = select(i, ...)
+        if r then
+            if texKeywords and r.GetTexture then
+                local tex = r:GetTexture()
+                if tex and type(tex) == "string" then
+                    local lTex = string_lower(tex)
+                    for k = 1, #texKeywords do
+                        if string_find(lTex, texKeywords[k]) then return true end
+                    end
+                end
+            end
+            if textKeywords and r.GetText then
+                local txt = r:GetText()
+                if txt and type(txt) == "string" then
+                    local lTxt = string_lower(txt)
+                    for k = 1, #textKeywords do
+                        if string_find(lTxt, textKeywords[k]) then return true end
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
 local function MatchesFrameKeywords(f, nameKeywords, texKeywords, textKeywords)
     if not f then return false end
     local name = f:GetName()
     if name then
-        if BlizzardCoreFrames[name] or string.find(name, "AutoLazy") then return false end
-        local lName = string.lower(name)
-        if string.find(lName, "zonetext") or string.find(lName, "toggle") or string.find(lName, "border") or
-           string.find(lName, "backdrop") or string.find(lName, "cluster") then
+        if BlizzardCoreFrames[name] or string_find(name, "AutoLazy") then return false end
+        local lName = string_lower(name)
+        if string_find(lName, "zonetext") or string_find(lName, "toggle") or string_find(lName, "border") or
+           string_find(lName, "backdrop") or string_find(lName, "cluster") then
             return false
         end
         if nameKeywords then
             for i = 1, #nameKeywords do
-                if string.find(lName, nameKeywords[i]) then return true end
+                if string_find(lName, nameKeywords[i]) then return true end
             end
         end
     end
@@ -411,38 +445,16 @@ local function MatchesFrameKeywords(f, nameKeywords, texKeywords, textKeywords)
         if norm and norm.GetTexture then
             local tex = norm:GetTexture()
             if tex and type(tex) == "string" then
-                local lTex = string.lower(tex)
+                local lTex = string_lower(tex)
                 for i = 1, #texKeywords do
-                    if string.find(lTex, texKeywords[i]) then return true end
+                    if string_find(lTex, texKeywords[i]) then return true end
                 end
             end
         end
     end
 
     if (texKeywords or textKeywords) and f.GetRegions then
-        local function InspectRegions(r, ...)
-            if not r then return false end
-            if texKeywords and r.GetTexture then
-                local tex = r:GetTexture()
-                if tex and type(tex) == "string" then
-                    local lTex = string.lower(tex)
-                    for i = 1, #texKeywords do
-                        if string.find(lTex, texKeywords[i]) then return true end
-                    end
-                end
-            end
-            if textKeywords and r.GetText then
-                local txt = r:GetText()
-                if txt and type(txt) == "string" then
-                    local lTxt = string.lower(txt)
-                    for i = 1, #textKeywords do
-                        if string.find(lTxt, textKeywords[i]) then return true end
-                    end
-                end
-            end
-            return InspectRegions(...)
-        end
-        if InspectRegions(f:GetRegions()) then return true end
+        if InspectRegionsIter(texKeywords, textKeywords, f:GetRegions()) then return true end
     end
     return false
 end
@@ -512,50 +524,60 @@ end
 
 local DiscoveredAddonList = {}
 local DiscoveredAddonSet = {}
+local ActiveButtonList = {}
+local trayFrame
+local actionBtn
+
+local KNOWN_RADIO_FRAMES = {
+    "RadioMinimapButton", "PirateRadioMinimapButton", "BBRadioMinimapButton",
+    "BBPR_MinimapButton", "Radio_MinimapButton", "TWRadioMinimapButton",
+    "TW_RadioMinimapButton", "TurtleRadioMinimapButton", "TWBBRadio",
+    "TWBBRadioMinimapButton", "BBRadio_MinimapButton", "BootyBayRadio",
+    "BootyBayRadioMinimapButton", "RadioIcon", "TW_RadioIcon", "RadioBtn", "TW_RadioBtn",
+}
+
+local KNOWN_LFG_FRAMES = {
+    "TW_LFGBtn", "TWLFG_Minimap", "TWLFG_MinimapButton", "LFTMinimapButton",
+    "LFT_MinimapButton", "MiniMapMeetingStoneFrame", "MiniMapLFGFrame",
+    "LFGMinimapButton", "TurtleLFGMinimapButton", "GroupFinderMinimapButton",
+}
+
+local function ScanChildrenForBloat(hideRadio, hideLfg, ...)
+    local count = select("#", ...)
+    for i = 1, count do
+        local child = select(i, ...)
+        if child then
+            local cName = child:GetName() or ""
+            if not BlizzardCoreFrames[cName] then
+                if IsRadioFrame(child) then
+                    SetFrameSuppressed(child, hideRadio)
+                elseif IsLfgFrame(child) then
+                    SetFrameSuppressed(child, hideLfg)
+                end
+            end
+        end
+    end
+end
 
 function AutoLazy_ApplySystemIconToggles()
     if not AutoLazyDB or not AutoLazyDB.Tweaks then return end
     local hideRadio = (AutoLazyDB.Tweaks.HideRadio == true)
     local hideLfg   = (AutoLazyDB.Tweaks.HideLfg == true)
 
-    local knownRadio = {
-        "RadioMinimapButton", "PirateRadioMinimapButton", "BBRadioMinimapButton",
-        "BBPR_MinimapButton", "Radio_MinimapButton", "TWRadioMinimapButton",
-        "TW_RadioMinimapButton", "TurtleRadioMinimapButton", "TWBBRadio",
-        "TWBBRadioMinimapButton", "BBRadio_MinimapButton", "BootyBayRadio",
-        "BootyBayRadioMinimapButton", "RadioIcon", "TW_RadioIcon", "RadioBtn", "TW_RadioBtn",
-    }
-    for i = 1, #knownRadio do
-        local rf = getglobal(knownRadio[i])
+    for i = 1, #KNOWN_RADIO_FRAMES do
+        local rf = getglobal(KNOWN_RADIO_FRAMES[i])
         if rf then SetFrameSuppressed(rf, hideRadio) end
     end
 
-    local knownLfg = {
-        "TW_LFGBtn", "TWLFG_Minimap", "TWLFG_MinimapButton", "LFTMinimapButton",
-        "LFT_MinimapButton", "MiniMapMeetingStoneFrame", "MiniMapLFGFrame",
-        "LFGMinimapButton", "TurtleLFGMinimapButton", "GroupFinderMinimapButton",
-    }
-    for i = 1, #knownLfg do
-        local lf = getglobal(knownLfg[i])
+    for i = 1, #KNOWN_LFG_FRAMES do
+        local lf = getglobal(KNOWN_LFG_FRAMES[i])
         if lf then SetFrameSuppressed(lf, hideLfg) end
     end
 
-    local function ScanChildrenForBloat(child, ...)
-        if not child then return end
-        if not BlizzardCoreFrames[child:GetName() or ""] then
-            if IsRadioFrame(child) then SetFrameSuppressed(child, hideRadio)
-            elseif IsLfgFrame(child) then SetFrameSuppressed(child, hideLfg) end
-        end
-        return ScanChildrenForBloat(...)
-    end
-
-    local parents = { Minimap, MinimapBackdrop, MinimapCluster, trayFrame }
-    for i = 1, #parents do
-        local parent = parents[i]
-        if parent and parent.GetChildren then
-            ScanChildrenForBloat(parent:GetChildren())
-        end
-    end
+    if Minimap and Minimap.GetChildren then ScanChildrenForBloat(hideRadio, hideLfg, Minimap:GetChildren()) end
+    if MinimapBackdrop and MinimapBackdrop.GetChildren then ScanChildrenForBloat(hideRadio, hideLfg, MinimapBackdrop:GetChildren()) end
+    if MinimapCluster and MinimapCluster.GetChildren then ScanChildrenForBloat(hideRadio, hideLfg, MinimapCluster:GetChildren()) end
+    if trayFrame and trayFrame.GetChildren then ScanChildrenForBloat(hideRadio, hideLfg, trayFrame:GetChildren()) end
 
     for _, btn in ipairs(DiscoveredAddonList) do
         if btn then
@@ -568,6 +590,26 @@ end
 --------------------------------------------------
 -- STRICT ADDON BUTTON SCANNER (ZERO LEAKS & NO GAPS)
 --------------------------------------------------
+local function InspectContentRegionsIter(...)
+    local count = select("#", ...)
+    for i = 1, count do
+        local r1 = select(i, ...)
+        if r1 then
+            if r1.GetTexture then
+                local tex = r1:GetTexture()
+                if tex and type(tex) == "string" and tex ~= "" and not string_find(string_lower(tex), "tooltip") then
+                    return true
+                end
+            end
+            if r1.GetText then
+                local txt = r1:GetText()
+                if txt and type(txt) == "string" and txt ~= "" then return true end
+            end
+        end
+    end
+    return false
+end
+
 local function HasRenderableVisual(f)
     if not f then return false end
     if f.GetNormalTexture then
@@ -578,21 +620,7 @@ local function HasRenderableVisual(f)
         end
     end
     if f.GetRegions then
-        local function InspectContentRegions(r1, ...)
-            if not r1 then return false end
-            if r1.GetTexture then
-                local tex = r1:GetTexture()
-                if tex and type(tex) == "string" and tex ~= "" and not string.find(string.lower(tex), "tooltip") then
-                    return true
-                end
-            end
-            if r1.GetText then
-                local txt = r1:GetText()
-                if txt and type(txt) == "string" and txt ~= "" then return true end
-            end
-            return InspectContentRegions(...)
-        end
-        if InspectContentRegions(f:GetRegions()) then return true end
+        if InspectContentRegionsIter(f:GetRegions()) then return true end
     end
     return false
 end
@@ -601,12 +629,12 @@ local function IsValidAddonButton(f)
     if not f or not f:IsObjectType("Button") then return false end
     local name = f:GetName()
     if name then
-        if BlizzardCoreFrames[name] or string.find(name, "AutoLazy") then return false end
-        local lower = string.lower(name)
-        if string.find(lower, "aura") or string.find(lower, "buff") or string.find(lower, "debuff") or
-           string.find(lower, "cooldown") or string.find(lower, "combat") or string.find(lower, "action") or
-           string.find(lower, "spell") or string.find(lower, "icon_") or string.find(lower, "condition") or
-           string.find(lower, "close") or string.find(lower, "play") or string.find(lower, "targetframe") then
+        if BlizzardCoreFrames[name] or string_find(name, "AutoLazy") then return false end
+        local lower = string_lower(name)
+        if string_find(lower, "aura") or string_find(lower, "buff") or string_find(lower, "debuff") or
+           string_find(lower, "cooldown") or string_find(lower, "combat") or string_find(lower, "action") or
+           string_find(lower, "spell") or string_find(lower, "icon_") or string_find(lower, "condition") or
+           string_find(lower, "close") or string_find(lower, "play") or string_find(lower, "targetframe") then
             if name ~= "DoiteAurasMinimapButton" then return false end
         end
     end
@@ -621,57 +649,59 @@ local function IsValidAddonButton(f)
     return HasRenderableVisual(f)
 end
 
+local EXPLICIT_ADDON_BUTTONS = {
+    "AtlasLootMinimapButtonFrame", "AtlasLootMinimapButton", "pfQuestIcon", "DoiteAurasMinimapButton",
+    "TrinketMenu_IconFrame", "BagnonMinimapButton", "AutoBG_QuickQueueButton", "TWThreatMinimapButton",
+    "shootyepgpMinimapButton", "sepgpMinimapButton", "WIM3MinimapButton", "SuperAPIOptionsMinimapButton",
+    "EasyPoisonsMinimapButton", "ModernMapMarkersMinimapButton", "ShaguDPSMinimapButton", "BigWigsMinimapButton",
+}
+
+local function RegisterAddonButton(f, isExplicit)
+    if not f or not f:IsObjectType("Button") then return end
+    if not isExplicit and not IsValidAddonButton(f) then return end
+    if AutoLazyDB and AutoLazyDB.Tweaks then
+        if AutoLazyDB.Tweaks.HideRadio and IsRadioFrame(f) then return end
+        if AutoLazyDB.Tweaks.HideLfg and IsLfgFrame(f) then return end
+    end
+
+    if not DiscoveredAddonSet[f] then
+        DiscoveredAddonSet[f] = true
+        if not f._alOrigState then
+            local numPoints = (f.GetNumPoints and f:GetNumPoints()) or 0
+            local point, relTo, relPoint, xOfs, yOfs = nil, nil, nil, 0, 0
+            if numPoints > 0 and f.GetPoint then point, relTo, relPoint, xOfs, yOfs = f:GetPoint(1) end
+            f._alOrigState = {
+                parent = f:GetParent(), point = point or "CENTER",
+                relativeTo = relTo or f:GetParent() or Minimap, relativePoint = relPoint or "CENTER",
+                xOfs = xOfs or 0, yOfs = yOfs or 0, alpha = (f.GetAlpha and f:GetAlpha()) or 1,
+            }
+        end
+        table_insert(DiscoveredAddonList, f)
+    end
+end
+
+local function ScanChildrenForAddons(...)
+    local count = select("#", ...)
+    for i = 1, count do
+        local child = select(i, ...)
+        if child and child:IsObjectType("Button") then
+            RegisterAddonButton(child, false)
+        end
+    end
+end
+
 function AutoLazy_FindAddonButtons()
-    local function RegisterButton(f, isExplicit)
-        if not f or not f:IsObjectType("Button") then return end
-        if not isExplicit and not IsValidAddonButton(f) then return end
-        if AutoLazyDB and AutoLazyDB.Tweaks then
-            if AutoLazyDB.Tweaks.HideRadio and IsRadioFrame(f) then return end
-            if AutoLazyDB.Tweaks.HideLfg and IsLfgFrame(f) then return end
-        end
-
-        if not DiscoveredAddonSet[f] then
-            DiscoveredAddonSet[f] = true
-            if not f._alOrigState then
-                local numPoints = (f.GetNumPoints and f:GetNumPoints()) or 0
-                local point, relTo, relPoint, xOfs, yOfs = nil, nil, nil, 0, 0
-                if numPoints > 0 and f.GetPoint then point, relTo, relPoint, xOfs, yOfs = f:GetPoint(1) end
-                f._alOrigState = {
-                    parent = f:GetParent(), point = point or "CENTER",
-                    relativeTo = relTo or f:GetParent() or Minimap, relativePoint = relPoint or "CENTER",
-                    xOfs = xOfs or 0, yOfs = yOfs or 0, alpha = (f.GetAlpha and f:GetAlpha()) or 1,
-                }
-            end
-            table.insert(DiscoveredAddonList, f)
-        end
-    end
-
-    local ExplicitAddons = {
-        "AtlasLootMinimapButtonFrame", "AtlasLootMinimapButton", "pfQuestIcon", "DoiteAurasMinimapButton",
-        "TrinketMenu_IconFrame", "BagnonMinimapButton", "AutoBG_QuickQueueButton", "TWThreatMinimapButton",
-        "shootyepgpMinimapButton", "sepgpMinimapButton", "WIM3MinimapButton", "SuperAPIOptionsMinimapButton",
-        "EasyPoisonsMinimapButton", "ModernMapMarkersMinimapButton", "ShaguDPSMinimapButton", "BigWigsMinimapButton",
-    }
-    for _, kName in ipairs(ExplicitAddons) do
+    for _, kName in ipairs(EXPLICIT_ADDON_BUTTONS) do
         local f = getglobal(kName)
-        if f and HasRenderableVisual(f) then RegisterButton(f, true) end
+        if f and HasRenderableVisual(f) then RegisterAddonButton(f, true) end
     end
 
-    local function ScanChildrenForAddons(child, ...)
-        if not child then return end
-        if child:IsObjectType("Button") then RegisterButton(child, false) end
-        return ScanChildrenForAddons(...)
-    end
+    if Minimap and Minimap.GetChildren then ScanChildrenForAddons(Minimap:GetChildren()) end
+    if MinimapBackdrop and MinimapBackdrop.GetChildren then ScanChildrenForAddons(MinimapBackdrop:GetChildren()) end
+    if MinimapCluster and MinimapCluster.GetChildren then ScanChildrenForAddons(MinimapCluster:GetChildren()) end
+    if trayFrame and trayFrame.GetChildren then ScanChildrenForAddons(trayFrame:GetChildren()) end
 
-    local parents = { Minimap, MinimapBackdrop, MinimapCluster, trayFrame }
-    for i = 1, #parents do
-        local parent = parents[i]
-        if parent and parent.GetChildren then
-            ScanChildrenForAddons(parent:GetChildren())
-        end
-    end
-
-    local activeList = {}
+    table_wipe(ActiveButtonList)
     for _, btn in ipairs(DiscoveredAddonList) do
         if HasRenderableVisual(btn) then
             local isSuppressed = false
@@ -679,10 +709,10 @@ function AutoLazy_FindAddonButtons()
                 if AutoLazyDB.Tweaks.HideRadio and IsRadioFrame(btn) then isSuppressed = true; SetFrameSuppressed(btn, true)
                 elseif AutoLazyDB.Tweaks.HideLfg and IsLfgFrame(btn) then isSuppressed = true; SetFrameSuppressed(btn, true) end
             end
-            if not isSuppressed then table.insert(activeList, btn) end
+            if not isSuppressed then table_insert(ActiveButtonList, btn) end
         end
     end
-    return activeList
+    return ActiveButtonList
 end
 
 --------------------------------------------------
@@ -701,6 +731,12 @@ trayFrame:SetBackdrop({
 trayFrame:SetBackdropColor(0.08, 0.08, 0.12, 0.94)
 trayFrame:SetBackdropBorderColor(0.85, 0.70, 0.20, 0.90)
 trayFrame:Hide()
+
+-- Allow dismissing with ESC key
+table_insert(UISpecialFrames, "AutoLazy_ButtonTray")
+trayFrame:SetScript("OnHide", function()
+    AutoLazy_CloseTray()
+end)
 
 local trayTitle = trayFrame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 trayTitle:SetPoint("TOP", trayFrame, "TOP", 0, -8)
@@ -842,22 +878,23 @@ function AutoLazy_ResetActionButtonPos()
     AutoLazy_Print("AutoLazy button position reset to top right.")
 end
 
-actionBtn:SetScript("OnDragStart", function() this:StartMoving() end)
+actionBtn:SetScript("OnDragStart", function() actionBtn:StartMoving() end)
 actionBtn:SetScript("OnDragStop", function()
-    this:StopMovingOrSizing()
+    actionBtn:StopMovingOrSizing()
     if AutoLazyDB then
         AutoLazyDB.ButtonPos = AutoLazyDB.ButtonPos or {}
-        AutoLazyDB.ButtonPos.x = this:GetLeft()
-        AutoLazyDB.ButtonPos.y = this:GetBottom()
+        AutoLazyDB.ButtonPos.x = actionBtn:GetLeft()
+        AutoLazyDB.ButtonPos.y = actionBtn:GetBottom()
     end
 end)
 
-actionBtn:SetScript("OnClick", function()
-    if arg1 == "RightButton" then AutoLazy_ToggleGUI() else AutoLazy_ToggleTray() end
+actionBtn:SetScript("OnClick", function(self, btn)
+    local clickBtn = btn or arg1
+    if clickBtn == "RightButton" then AutoLazy_ToggleGUI() else AutoLazy_ToggleTray() end
 end)
 
 actionBtn:SetScript("OnEnter", function()
-    GameTooltip:SetOwner(this, "ANCHOR_LEFT")
+    GameTooltip:SetOwner(actionBtn, "ANCHOR_LEFT")
     GameTooltip:AddLine("AutoLazy", 1, 1, 1)
     GameTooltip:AddLine("|cFFFFD100Left-Click:|r Toggle Addon Tray", 0.9, 0.9, 0.9)
     GameTooltip:AddLine("|cFFFFD100Right-Click:|r Open AutoLazy Options", 0.9, 0.9, 0.9)
@@ -872,6 +909,7 @@ function AutoLazy_PrintStatus()
 
     local masterStatus = AutoLazyDB.Enabled and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"
     local farmStatus = AutoLazyDB.FarmOnly and "|cFFFFD100Farm Items ONLY|r (Gear ignored)" or "|cFF00FF00All Items|r"
+    local bopStatus = AutoLazyDB.AutoConfirmBop and "|cFF00FF00ON|r" or "|cFFFF2020OFF|r"
     local questMode = (AutoLazyDB.Quests and AutoLazyDB.Quests.AlwaysActive) and "Always" or "Shift-Click"
     local questStatus = (AutoLazyDB.Quests and AutoLazyDB.Quests.Enabled) and ("|cFF00FF00ON (" .. questMode .. ")|r") or "|cFFFF2020OFF|r"
     AutoLazy_Print("Dungeon Auto-Loot: " .. masterStatus .. " | Filter: " .. farmStatus .. " | BoP: " .. bopStatus .. " | Quests: " .. questStatus)
@@ -884,11 +922,13 @@ function AutoLazy_PrintStatus()
     end
 end
 
+local STATIC_POPUPS = { StaticPopup1, StaticPopup2, StaticPopup3, StaticPopup4 }
+
 local function DismissConfirmPopups(rollId)
     if rollId and StaticPopup_Hide then StaticPopup_Hide("CONFIRM_LOOT_ROLL", rollId) end
     if StaticPopup_Hide then StaticPopup_Hide("CONFIRM_LOOT_ROLL") end
     for i = 1, 4 do
-        local popup = getglobal("StaticPopup" .. i)
+        local popup = STATIC_POPUPS[i] or getglobal("StaticPopup" .. i)
         if popup and popup:IsShown() and popup.which == "CONFIRM_LOOT_ROLL" then popup:Hide() end
     end
 end
@@ -1006,10 +1046,9 @@ local GossipTurnInKeywords = {
 local function GetPlayerItemCount(targetItem)
     if not targetItem or targetItem == "" then return 0 end
     if GetItemCount then
-        local count = GetItemCount(targetItem)
-        if count and count > 0 then return count end
+        return GetItemCount(targetItem) or 0
     end
-    local targetLower = string.lower(targetItem)
+    local targetLower = string_lower(targetItem)
     local total = 0
     for bag = 0, 4 do
         local numSlots = GetContainerNumSlots(bag)
@@ -1017,8 +1056,8 @@ local function GetPlayerItemCount(targetItem)
             for slot = 1, numSlots do
                 local link = GetContainerItemLink(bag, slot)
                 if link then
-                    local _, _, name = string.find(link, "%[(.+)%]")
-                    if name and string.find(string.lower(name), targetLower, 1, true) then
+                    local _, _, name = string_find(link, "%[(.+)%]")
+                    if name and string_find(string_lower(name), targetLower, 1, true) then
                         local _, count = GetContainerItemInfo(bag, slot)
                         total = total + (count or 1)
                     end
@@ -1252,6 +1291,21 @@ local function ProcessGreeting()
     return false
 end
 
+local function DelayedStartupSync()
+    AutoLazy_ApplySystemIconToggles()
+    if AutoLazy_CollapseAddons then AutoLazy_CollapseAddons() end
+end
+
+local function TryQuestChain()
+    if GossipFrame and GossipFrame:IsShown() then
+        ProcessGossip()
+    elseif QuestFrameGreetingPanel and QuestFrameGreetingPanel:IsShown() then
+        ProcessGreeting()
+    else
+        questSessionActive = false
+    end
+end
+
 -- Main Event Frame
 local EventFrame = CreateFrame("Frame", "AutoLazy_EventFrame")
 EventFrame:RegisterEvent("ADDON_LOADED")
@@ -1270,8 +1324,10 @@ EventFrame:RegisterEvent("QUEST_PROGRESS")
 EventFrame:RegisterEvent("QUEST_COMPLETE")
 EventFrame:RegisterEvent("QUEST_FINISHED")
 
-EventFrame:SetScript("OnEvent", function()
-    local ev, a1, a2 = event, arg1, arg2
+EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
+    local ev = ev_arg or event
+    local a1 = a1_arg or arg1
+    local a2 = a2_arg or arg2
 
     if (ev == "ADDON_LOADED" and a1 == addonName) or ev == "VARIABLES_LOADED" then
         InitDB()
@@ -1281,14 +1337,8 @@ EventFrame:SetScript("OnEvent", function()
         AutoLazy_CollapseAddons()
 
         -- Native C++ Hardware Timers (Zero OnUpdate startup bloat)
-        C_Timer.After(1.0, function()
-            AutoLazy_ApplySystemIconToggles()
-            if AutoLazy_CollapseAddons then AutoLazy_CollapseAddons() end
-        end)
-        C_Timer.After(2.5, function()
-            AutoLazy_ApplySystemIconToggles()
-            if AutoLazy_CollapseAddons then AutoLazy_CollapseAddons() end
-        end)
+        C_Timer.After(1.0, DelayedStartupSync)
+        C_Timer.After(2.5, DelayedStartupSync)
 
     elseif ev == "PLAYER_ENTERING_WORLD" or ev == "ZONE_CHANGED_NEW_AREA" or ev == "ZONE_CHANGED" then
         UpdateZoneCache()
@@ -1336,7 +1386,7 @@ EventFrame:SetScript("OnEvent", function()
             ConfirmLootSlot(slot)
             if StaticPopup_Hide then StaticPopup_Hide("LOOT_BIND") end
             for i = 1, 4 do
-                local popup = getglobal("StaticPopup" .. i)
+                local popup = STATIC_POPUPS[i] or getglobal("StaticPopup" .. i)
                 if popup and popup:IsShown() and popup.which == "LOOT_BIND" then popup:Hide() end
             end
         end
@@ -1384,17 +1434,8 @@ EventFrame:SetScript("OnEvent", function()
     elseif ev == "QUEST_FINISHED" then
         -- Fast chain-trigger for repeatable turn-ins (e.g. E'ko, Scourgestones, Bijous, Dark Iron Residue)
         if ShouldAutoQuest() then
-            local function TryChain()
-                if GossipFrame and GossipFrame:IsShown() then
-                    ProcessGossip()
-                elseif QuestFrameGreetingPanel and QuestFrameGreetingPanel:IsShown() then
-                    ProcessGreeting()
-                else
-                    questSessionActive = false
-                end
-            end
-            C_Timer.After(0.05, TryChain)
-            C_Timer.After(0.15, TryChain)
+            C_Timer.After(0.05, TryQuestChain)
+            C_Timer.After(0.15, TryQuestChain)
         else
             questSessionActive = false
         end
@@ -1482,8 +1523,8 @@ SLASH_AUTOLAZY2 = "/al"
 SLASH_AUTOLAZY3 = "/ar"
 SlashCmdList["AUTOLAZY"] = function(msg)
     if not AutoLazyDB then InitDB() end
-    local _, _, cmd = string.find(msg or "", "^%s*(%S+)%s*(.-)$")
-    cmd = string.lower(cmd or "")
+    local _, _, cmd = string_find(msg or "", "^%s*(%S+)%s*(.-)$")
+    cmd = string_lower(cmd or "")
 
     if slashToggles[cmd] then
         slashToggles[cmd]()

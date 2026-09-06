@@ -1,7 +1,7 @@
 # AutoLazy
 
 [![Interface: 1.12.1](https://img.shields.io/badge/Interface-1.12.1%20(5875)-orange.svg)](https://github.com/Fostercare5988/AutoLazy)
-[![Version: 3.6.0](https://img.shields.io/badge/Version-3.6.0-blue.svg)](https://github.com/Fostercare5988/AutoLazy/releases)
+[![Version: 3.6.1](https://img.shields.io/badge/Version-3.6.1-blue.svg)](https://github.com/Fostercare5988/AutoLazy/releases)
 [![ClassicAPI: v1.14.0+](https://img.shields.io/badge/ClassicAPI-v1.14.0+-green.svg)](https://github.com/brues-code/ClassicAPI)
 [![SuperWoW: v2.2+](https://img.shields.io/badge/SuperWoW-v2.2+-brightgreen.svg)](https://github.com/balakethelock/SuperWoW)
 [![NamPower: v4.6.3+](https://img.shields.io/badge/NamPower-v4.6.3+-blueviolet.svg)](https://github.com/Emyrk/nampower)
@@ -9,7 +9,7 @@
 [![DXVK: Vulkan](https://img.shields.io/badge/DXVK-Vulkan-red.svg)](https://github.com/doitsujin/dxvk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**AutoLazy v3.6.0** is an enterprise-grade, zero-bloat dungeon automation and quality-of-life suite engineered natively for **World of Warcraft 1.12.1 (Build 5875)** running on the **Enhanced Client Extension Stack** (**ClassicAPI v1.14.0+**, **SuperWoW v2.2+**, **NamPower v4.6.3+**, **UnitXP SP3**, and **DXVK**).
+**AutoLazy v3.6.1** is an enterprise-grade, zero-bloat dungeon automation and quality-of-life suite engineered natively for **World of Warcraft 1.12.1 (Build 5875)** running on the **Enhanced Client Extension Stack** (**ClassicAPI v1.14.0+**, **SuperWoW v2.2+**, **NamPower v4.6.3+**, **UnitXP SP3**, and **DXVK**).
 
 It provides intelligent per-dungeon automated loot rolling, global BoP auto-confirmation, continuous Shift-hold repeatable quest chaining, a draggable floating hub with popup Addon Tray, and reversible client bloat suppression (including suppression of custom server pirate radio and group finder elements).
 
@@ -130,6 +130,18 @@ Use `/al` or `/autolazy` (or `/ar`):
 ---
 
 ## 📜 Changelog
+
+### v3.6.1
+- **Zero-Allocation Hierarchy & Region Scanning**: Eliminated runtime closure instantiation inside `MatchesFrameKeywords` and `HasRenderableVisual` by replacing recursive inner closures with static `select(i, ...)`-based iterators.
+- **Static Table Hoisting**: Hoisted `KNOWN_RADIO_FRAMES`, `KNOWN_LFG_FRAMES`, `DISCOVERY_PARENTS`, and `EXPLICIT_ADDON_BUTTONS` to file scope, eradicating garbage collection churn during zone transitions and minimap icon sweeps.
+- **Native Item Counting Optimization**: Streamlined `GetPlayerItemCount` to query native C++ `GetItemCount` directly, eliminating redundant 5-bag 80-slot manual string loops when turn-in count is zero.
+- **Global Scope Hardening**: Localized `trayFrame` and `actionBtn` away from the global `_G` namespace.
+- **Tray Keyboard Navigation**: Registered `AutoLazy_ButtonTray` in `UISpecialFrames` with automatic `OnHide` child synchronization, enabling seamless Escape-key dismissal.
+- **Bug Fix**: Fixed uninitialized `bopStatus` nil variable reference in `/autolazy status` command.
+
+### v3.6.0
+- **Modern Clean UI Layout**: Updated tab controls, dialog dimensions, and breathing room across all options frames.
+- **Native C++ Table Acceleration**: Integrated `table.wipe` memory recycling across evaluation caches and button discovery lists.
 
 ### v3.5.0
 - **Engine Startup Guard Enforcement**: Upgraded engine dependency guards across all modules (`AutoLazy.lua` and `AutoLazy_GUI.lua`) to strictly enforce `MIN_CLASSIC_API = 11400` (`v1.14.0+`) and `SUPERWOW_VERSION` (`v2.2+`).
