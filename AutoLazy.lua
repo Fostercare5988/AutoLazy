@@ -1,5 +1,5 @@
 --[[
-    AutoLazy v3.6.1
+    AutoLazy v3.7.0
     Author & Maintainer: Fostercare5988
     Target: World of Warcraft 1.12.1 (Vanilla Enhanced Stack: ClassicAPI v1.14.0+, SuperWoW 2.2+, NamPower, UnitXP SP3, DXVK)
     Description: High-performance dungeon loot automation, continuous repeatable quest turn-ins, Floating Addon Tray, and Reversible System Bloat Suppression.
@@ -17,7 +17,7 @@ if not (CLASSIC_API_VERSION and SUPERWOW_VERSION) or
 end
 
 local addonName = "AutoLazy"
-local addonVersion = "3.6.1"
+local addonVersion = "3.7.0"
 
 AutoLazy = {}
 
@@ -51,32 +51,44 @@ local DungeonDefinitions = {
     {
         key = "Ruins of Ahn'Qiraj",
         title = "Ruins of Ahn'Qiraj",
-        itemDesc = "Scarabs, Idols & Keys",
+        itemDesc = "Scarabs & Idols",
         aliases = { "ruins of ahn'qiraj", "ahn'qiraj ruins", "aq20", "ruins of ahnqiraj" },
         defaultMode = "NEED",
     },
     {
-        key = "Stratholme",
-        title = "Stratholme",
-        itemDesc = "Scourgestones & Water",
-        aliases = { "stratholme", "strat" },
-        defaultMode = "NEED",
-    },
-    {
-        key = "Scholomance",
-        title = "Scholomance",
-        itemDesc = "Scourgestones & Runes",
-        aliases = { "scholomance", "scholo" },
-        defaultMode = "NEED",
-    },
-    {
-        key = "Blackrock Depths",
-        title = "Blackrock Depths",
-        itemDesc = "Dark Iron Residue & Ore",
-        aliases = { "blackrock depths", "brd" },
+        key = "Naxxramas",
+        title = "Naxxramas",
+        itemDesc = "Wartorn Scraps",
+        aliases = { "naxxramas", "naxx" },
         defaultMode = "NEED",
     },
 }
+
+-- Granular Dungeon Items Definition Table (Icons, IDs, Rarity & Safe Defaults)
+local DungeonItems = {
+    ["The Black Morass"] = {
+        { id = 50203, name = "Corrupted Sand", texture = "Interface\\Icons\\INV_enchant_dustsoul", quality = 2, defaultNeed = true },
+    },
+    ["Zul'Gurub"] = {
+        { id = 19707, name = "Bijous", texture = "Interface\\Icons\\INV_Bijou_Gold", quality = 3, defaultNeed = true, key = "zg bijous" },
+        { id = 19698, name = "Coins", texture = "Interface\\Icons\\INV_Misc_ArmorKit_11", quality = 2, defaultNeed = true, key = "zg coins" },
+    },
+    ["Ruins of Ahn'Qiraj"] = {
+        { id = 20858, name = "Scarabs", texture = "Interface\\Icons\\INV_Scarab_Stone", quality = 2, defaultNeed = true, key = "aq20 scarabs" },
+        { id = 20875, name = "Idols", texture = "Interface\\Icons\\INV_Misc_Idol_01", quality = 3, defaultNeed = false, key = "aq20 idols" },
+    },
+    ["Naxxramas"] = {
+        { id = 22376, name = "Wartorn Cloth Scrap", texture = "Interface\\Icons\\INV_Misc_WartornScrap_Cloth", quality = 3, defaultNeed = true, key = "wartorn cloth scrap" },
+        { id = 22373, name = "Wartorn Leather Scrap", texture = "Interface\\Icons\\INV_Misc_WartornScrap_Leather", quality = 3, defaultNeed = true, key = "wartorn leather scrap" },
+        { id = 22374, name = "Wartorn Chain Scrap", texture = "Interface\\Icons\\INV_Misc_WartornScrap_Chain", quality = 3, defaultNeed = true, key = "wartorn chain scrap" },
+        { id = 22375, name = "Wartorn Plate Scrap", texture = "Interface\\Icons\\INV_Misc_WartornScrap_Plate", quality = 3, defaultNeed = true, key = "wartorn plate scrap" },
+    },
+}
+
+AutoLazy.DungeonDefinitions = DungeonDefinitions
+AutoLazy.DungeonItems = DungeonItems
+AutoLazy_DungeonDefinitions = DungeonDefinitions
+AutoLazy_DungeonItems = DungeonItems
 
 -- $O(1)$ Hash Table of recognized Farm Items (Normalized lowercase -> Category Tag)
 local FarmItemLookup = {
@@ -127,31 +139,19 @@ local FarmItemLookup = {
     ["alabaster idol"]            = "AQ20 Idol",
     ["lambent idol"]              = "AQ20 Idol",
 
-    -- AQ20 Keys & Shards
-    ["scarab coffer key"]         = "AQ20 Key/Shard",
-    ["greater scarab coffer key"] = "AQ20 Key/Shard",
-    ["large obsidian shard"]      = "AQ20 Key/Shard",
-    ["small obsidian shard"]      = "AQ20 Key/Shard",
+    -- Naxxramas (Tier 3 Wartorn Scraps)
+    ["wartorn cloth scrap"]       = "Wartorn Scrap",
+    ["wartorn leather scrap"]     = "Wartorn Scrap",
+    ["wartorn chain scrap"]       = "Wartorn Scrap",
+    ["wartorn plate scrap"]       = "Wartorn Scrap",
 
-    -- Argent Dawn (Scourgestones, Materials, Dungeons)
-    ["minion's scourgestone"]     = "Argent Dawn",
-    ["invader's scourgestone"]    = "Argent Dawn",
-    ["corruptor's scourgestone"]   = "Argent Dawn",
-    ["dark rune"]                 = "Dark Rune",
-    ["skin of shadow"]            = "Scholomance",
-    ["stratholme holy water"]     = "Stratholme",
+    -- Argent Dawn (Repeatable Hand-in Materials)
     ["bone fragments"]            = "Argent Dawn",
     ["crypt fiend parts"]         = "Argent Dawn",
     ["core of elements"]          = "Argent Dawn",
     ["savage frond"]              = "Argent Dawn",
     ["somber hourglass"]          = "Argent Dawn",
     ["healthy dragon scale"]      = "Argent Dawn",
-
-    -- Thorium Brotherhood (Blackrock Depths & Core)
-    ["dark iron residue"]         = "Thorium Brotherhood",
-    ["dark iron ore"]             = "Thorium Brotherhood",
-    ["relic coffer key"]          = "BRD Vault Key",
-    ["blood of the mountain"]     = "Thorium Brotherhood",
     ["fiery core"]                = "Molten Core",
     ["lava core"]                 = "Molten Core",
     ["core leather"]              = "Molten Core",
@@ -215,7 +215,6 @@ local ItemEvaluationCache = {}
 
 local defaultDB = {
     Enabled = true,
-    FarmOnly = true,
     AutoConfirmBop = true,
     AnnounceChat = true,
     SelectedTab = 1,
@@ -227,12 +226,21 @@ local defaultDB = {
         CollapseAddons = true,
     },
     Dungeons = {
-        ["The Black Morass"] = { Enabled = true, Mode = "NEED" },
-        ["Zul'Gurub"] = { Enabled = true, Mode = "NEED" },
-        ["Ruins of Ahn'Qiraj"] = { Enabled = true, Mode = "NEED" },
-        ["Stratholme"] = { Enabled = true, Mode = "NEED" },
-        ["Scholomance"] = { Enabled = true, Mode = "NEED" },
-        ["Blackrock Depths"] = { Enabled = true, Mode = "NEED" },
+        ["The Black Morass"] = { Enabled = true, Mode = "NEED", NonNeedMode = "MANUAL" },
+        ["Zul'Gurub"] = { Enabled = true, Mode = "NEED", NonNeedMode = "MANUAL" },
+        ["Ruins of Ahn'Qiraj"] = { Enabled = true, Mode = "NEED", NonNeedMode = "MANUAL" },
+        ["Naxxramas"] = { Enabled = true, Mode = "NEED", NonNeedMode = "MANUAL" },
+    },
+    ItemRules = {
+        ["zg bijous"] = true,
+        ["zg coins"] = true,
+        ["aq20 scarabs"] = true,
+        ["aq20 idols"] = false,
+        ["corrupted sand"] = true,
+        ["wartorn cloth scrap"] = true,
+        ["wartorn leather scrap"] = true,
+        ["wartorn chain scrap"] = true,
+        ["wartorn plate scrap"] = true,
     },
     Quests = {
         Enabled = true,
@@ -260,12 +268,28 @@ local function InitDB()
     if not AutoLazyDB then AutoLazyDB = {} end
 
     if AutoLazyDB.Enabled == nil then AutoLazyDB.Enabled = defaultDB.Enabled end
-    if AutoLazyDB.FarmOnly == nil then AutoLazyDB.FarmOnly = defaultDB.FarmOnly end
     if AutoLazyDB.AutoConfirmBop == nil then AutoLazyDB.AutoConfirmBop = defaultDB.AutoConfirmBop end
     if AutoLazyDB.AnnounceChat == nil then AutoLazyDB.AnnounceChat = defaultDB.AnnounceChat end
     if AutoLazyDB.SelectedTab == nil then AutoLazyDB.SelectedTab = defaultDB.SelectedTab end
     if AutoLazyDB.ShowButton == nil then AutoLazyDB.ShowButton = defaultDB.ShowButton end
     if not AutoLazyDB.ButtonPos then AutoLazyDB.ButtonPos = {} end
+
+    -- Cleanup legacy settings and removed dungeon/item records
+    AutoLazyDB.FarmOnly = nil
+    if AutoLazyDB.Dungeons then
+        AutoLazyDB.Dungeons["Scholomance"] = nil
+        AutoLazyDB.Dungeons["Stratholme"] = nil
+        AutoLazyDB.Dungeons["Blackrock Depths"] = nil
+    end
+    if AutoLazyDB.ItemRules then
+        AutoLazyDB.ItemRules["dark rune"] = nil
+        AutoLazyDB.ItemRules["skin of shadow"] = nil
+        AutoLazyDB.ItemRules["corruptor's scourgestone"] = nil
+        AutoLazyDB.ItemRules["invader's scourgestone"] = nil
+        AutoLazyDB.ItemRules["minion's scourgestone"] = nil
+        AutoLazyDB.ItemRules["relic coffer key"] = nil
+        AutoLazyDB.ItemRules["aq20 keys"] = nil
+    end
 
     if not AutoLazyDB.Tweaks then AutoLazyDB.Tweaks = {} end
     if AutoLazyDB.Tweaks.HideRadio == nil then AutoLazyDB.Tweaks.HideRadio = defaultDB.Tweaks.HideRadio end
@@ -275,10 +299,21 @@ local function InitDB()
     if not AutoLazyDB.Dungeons then AutoLazyDB.Dungeons = {} end
     for _, def in ipairs(DungeonDefinitions) do
         if not AutoLazyDB.Dungeons[def.key] then
-            AutoLazyDB.Dungeons[def.key] = { Enabled = true, Mode = def.defaultMode }
+            AutoLazyDB.Dungeons[def.key] = { Enabled = true, Mode = def.defaultMode, NonNeedMode = "MANUAL" }
         else
             if AutoLazyDB.Dungeons[def.key].Enabled == nil then AutoLazyDB.Dungeons[def.key].Enabled = true end
             if not AutoLazyDB.Dungeons[def.key].Mode then AutoLazyDB.Dungeons[def.key].Mode = def.defaultMode end
+            if not AutoLazyDB.Dungeons[def.key].NonNeedMode then AutoLazyDB.Dungeons[def.key].NonNeedMode = "MANUAL" end
+        end
+    end
+
+    if not AutoLazyDB.ItemRules then AutoLazyDB.ItemRules = {} end
+    for dKey, items in pairs(DungeonItems) do
+        for _, itm in ipairs(items) do
+            local ruleKey = itm.key or string.lower(itm.name)
+            if AutoLazyDB.ItemRules[ruleKey] == nil then
+                AutoLazyDB.ItemRules[ruleKey] = itm.defaultNeed
+            end
         end
     end
 
@@ -363,6 +398,41 @@ function AutoLazy_IsFarmItem(itemName)
 
     ItemEvaluationCache[itemName] = false
     return false, nil
+end
+
+function AutoLazy_GetItemRule(itemName)
+    if not itemName or itemName == "" or not AutoLazyDB or not AutoLazyDB.ItemRules then
+        return nil
+    end
+    local lower = string_lower(itemName)
+
+    -- Direct specific item name match
+    if AutoLazyDB.ItemRules[lower] ~= nil then
+        return AutoLazyDB.ItemRules[lower]
+    end
+
+    -- Category lookups
+    if string_find(lower, "bijou", 1, true) then
+        return AutoLazyDB.ItemRules["zg bijous"]
+    elseif string_find(lower, "coin", 1, true) and (string_find(lower, "zulian", 1, true) or string_find(lower, "razzashi", 1, true) or string_find(lower, "hakkari", 1, true) or string_find(lower, "sandfury", 1, true) or string_find(lower, "skullsplitter", 1, true) or string_find(lower, "bloodscalp", 1, true) or string_find(lower, "gurubashi", 1, true) or string_find(lower, "vilebranch", 1, true) or string_find(lower, "witherbark", 1, true)) then
+        return AutoLazyDB.ItemRules["zg coins"]
+    elseif string_find(lower, "scarab", 1, true) and not string_find(lower, "key", 1, true) then
+        return AutoLazyDB.ItemRules["aq20 scarabs"]
+    elseif string_find(lower, "idol", 1, true) and not BlacklistItems[lower] then
+        return AutoLazyDB.ItemRules["aq20 idols"]
+    elseif string_find(lower, "wartorn", 1, true) and string_find(lower, "scrap", 1, true) then
+        if string_find(lower, "cloth", 1, true) then
+            return AutoLazyDB.ItemRules["wartorn cloth scrap"]
+        elseif string_find(lower, "leather", 1, true) then
+            return AutoLazyDB.ItemRules["wartorn leather scrap"]
+        elseif string_find(lower, "chain", 1, true) then
+            return AutoLazyDB.ItemRules["wartorn chain scrap"]
+        elseif string_find(lower, "plate", 1, true) then
+            return AutoLazyDB.ItemRules["wartorn plate scrap"]
+        end
+    end
+
+    return nil
 end
 
 local questSessionActive = false
@@ -908,15 +978,15 @@ function AutoLazy_PrintStatus()
     UpdateZoneCache()
 
     local masterStatus = AutoLazyDB.Enabled and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"
-    local farmStatus = AutoLazyDB.FarmOnly and "|cFFFFD100Farm Items ONLY|r (Gear ignored)" or "|cFF00FF00All Items|r"
     local bopStatus = AutoLazyDB.AutoConfirmBop and "|cFF00FF00ON|r" or "|cFFFF2020OFF|r"
     local questMode = (AutoLazyDB.Quests and AutoLazyDB.Quests.AlwaysActive) and "Always" or "Shift-Click"
     local questStatus = (AutoLazyDB.Quests and AutoLazyDB.Quests.Enabled) and ("|cFF00FF00ON (" .. questMode .. ")|r") or "|cFFFF2020OFF|r"
-    AutoLazy_Print("Dungeon Auto-Loot: " .. masterStatus .. " | Filter: " .. farmStatus .. " | BoP: " .. bopStatus .. " | Quests: " .. questStatus)
+    AutoLazy_Print("Dungeon Auto-Loot: " .. masterStatus .. " | BoP: " .. bopStatus .. " | Quests: " .. questStatus)
 
     local currentZone = (GetRealZoneText and GetRealZoneText()) or (GetZoneText and GetZoneText()) or "Unknown"
     if CachedDungeonKey and CachedDungeonCfg and CachedDungeonCfg.Enabled then
-        AutoLazy_Print("Current Zone: |cFF00FF00" .. currentZone .. "|r (Active -> Mode: |cFFFFD100" .. CachedDungeonCfg.Mode .. "|r)")
+        local nonNeed = CachedDungeonCfg.NonNeedMode or "MANUAL"
+        AutoLazy_Print("Current Zone: |cFF00FF00" .. currentZone .. "|r (Active: " .. (CachedDungeonDef and CachedDungeonDef.title or CachedDungeonKey) .. " | Non-Need: |cFFFFD100" .. nonNeed .. "|r)")
     else
         AutoLazy_Print("Current Zone: |cFFFF8080" .. currentZone .. "|r (Auto-Loot inactive here)")
     end
@@ -1356,17 +1426,36 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
         local texture, name, count, quality, bindOnPickup = GetLootRollItemInfo(rollId)
         local itemLink = GetLootRollItemLink(rollId) or (name and ("[" .. name .. "]")) or ("Item #" .. rollId)
 
-        local isFarm, farmTag = AutoLazy_IsFarmItem(name)
-        if AutoLazyDB.FarmOnly and not isFarm then return end
+        -- Strict Gate: AutoLazy ONLY rolls on the explicitly configured tedious items
+        local autoNeed = AutoLazy_GetItemRule(name)
+        if autoNeed == nil then
+            return
+        end
 
-        local rollType = (CachedDungeonCfg.Mode == "NEED" and LOOT_ROLL_NEED) or (CachedDungeonCfg.Mode == "GREED" and LOOT_ROLL_GREED) or (CachedDungeonCfg.Mode == "PASS" and LOOT_ROLL_PASS)
-        local actionName = (CachedDungeonCfg.Mode == "NEED" and "|cFFFF8000Need|r") or (CachedDungeonCfg.Mode == "GREED" and "|cFF00FF00Greed|r") or "|cFF808080Passed|r"
+        local rollType = nil
+        local actionName = nil
+
+        if autoNeed == true then
+            rollType = LOOT_ROLL_NEED
+            actionName = "|cFFFF8000Need|r"
+        else
+            local nonNeedMode = CachedDungeonCfg.NonNeedMode or "MANUAL"
+            if nonNeedMode == "GREED" then
+                rollType = LOOT_ROLL_GREED
+                actionName = "|cFF00FF00Greed|r"
+            elseif nonNeedMode == "PASS" then
+                rollType = LOOT_ROLL_PASS
+                actionName = "|cFF808080Passed|r"
+            else
+                -- MANUAL (Skip): Leave the loot roll on screen for manual player choice
+                return
+            end
+        end
 
         if rollType ~= nil then
             RollOnLoot(rollId, rollType)
             if AutoLazyDB.AnnounceChat then
-                local tag = farmTag and (" [" .. farmTag .. "]") or ""
-                AutoLazy_Print(actionName .. " on " .. itemLink .. tag .. " (" .. CachedDungeonDef.title .. ")")
+                AutoLazy_Print(actionName .. " on " .. itemLink .. " (" .. (CachedDungeonDef and CachedDungeonDef.title or CachedDungeonKey) .. ")")
             end
         end
 
@@ -1461,11 +1550,7 @@ local slashToggles = {
     end,
     on = function() AutoLazyDB.Enabled = true; AutoLazy_Print("Dungeon Auto-Loot is now |cFF00FF00ENABLED|r."); if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end end,
     off = function() AutoLazyDB.Enabled = false; AutoLazy_Print("Dungeon Auto-Loot is now |cFFFF2020DISABLED|r."); if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end end,
-    farm = function()
-        AutoLazyDB.FarmOnly = not AutoLazyDB.FarmOnly
-        AutoLazy_Print("Farm Items Only: " .. (AutoLazyDB.FarmOnly and "|cFF00FF00ON (Gear ignored)|r" or "|cFFFF2020OFF (All items)|r"))
-        if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end
-    end,
+
     quest = function()
         AutoLazyDB.Quests.Enabled = not AutoLazyDB.Quests.Enabled
         local questMode = AutoLazyDB.Quests.AlwaysActive and "Always Active" or "Shift-Click"
@@ -1531,6 +1616,6 @@ SlashCmdList["AUTOLAZY"] = function(msg)
     elseif cmd == "" or cmd == "gui" or cmd == "menu" or cmd == "config" or cmd == "options" then
         if AutoLazy_ToggleGUI then AutoLazy_ToggleGUI() else AutoLazy_PrintStatus() end
     else
-        AutoLazy_Print("Commands: /al, /al tray, /al collapse, /al resetpos, /al btn, /al radio, /al lfg, /al toggle, /al farm, /al quest, /al turnin, /al accept, /al always, /al status")
+        AutoLazy_Print("Commands: /al, /al tray, /al collapse, /al resetpos, /al btn, /al radio, /al lfg, /al toggle, /al quest, /al turnin, /al accept, /al always, /al status")
     end
 end

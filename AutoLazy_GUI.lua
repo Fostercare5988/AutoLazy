@@ -11,8 +11,8 @@ if not (CLASSIC_API_VERSION and SUPERWOW_VERSION) or
 end
 
 local panel = CreateFrame("Frame", "AutoLazy_OptionsFrame", UIParent)
-panel:SetWidth(480)
-panel:SetHeight(490)
+panel:SetWidth(500)
+panel:SetHeight(520)
 panel:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 panel:SetFrameStrata("DIALOG")
 panel:SetToplevel(true)
@@ -102,21 +102,21 @@ end
 local currentTab = 1
 
 local btnTab1 = CreateFrame("Button", "AutoLazy_BtnTab1", panel, "UIPanelButtonTemplate")
-btnTab1:SetWidth(125)
+btnTab1:SetWidth(130)
 btnTab1:SetHeight(22)
 btnTab1:SetPoint("TOPLEFT", panel, "TOPLEFT", 25, -68)
 btnTab1:SetText("Tweaks")
 
 local btnTab2 = CreateFrame("Button", "AutoLazy_BtnTab2", panel, "UIPanelButtonTemplate")
-btnTab2:SetWidth(145)
+btnTab2:SetWidth(150)
 btnTab2:SetHeight(22)
-btnTab2:SetPoint("TOPLEFT", panel, "TOPLEFT", 158, -68)
+btnTab2:SetPoint("TOPLEFT", panel, "TOPLEFT", 165, -68)
 btnTab2:SetText("Loot & Dungeons")
 
 local btnTab3 = CreateFrame("Button", "AutoLazy_BtnTab3", panel, "UIPanelButtonTemplate")
-btnTab3:SetWidth(145)
+btnTab3:SetWidth(150)
 btnTab3:SetHeight(22)
-btnTab3:SetPoint("TOPLEFT", panel, "TOPLEFT", 311, -68)
+btnTab3:SetPoint("TOPLEFT", panel, "TOPLEFT", 325, -68)
 btnTab3:SetText("Quest Automation")
 
 local function ShowTab(tabIndex)
@@ -233,83 +233,231 @@ tweakTip:SetText("|cFF888888AutoLazy Button Controls:\n  • |cFFFFD100Left-Clic
 --------------------------------------------------
 -- TAB 2: LOOT & DUNGEONS
 --------------------------------------------------
-local cbMaster = CreateCheckbox("AutoLazy_MasterEnable", "|cFF00FF00Enable Auto-Loot|r", "Master toggle to enable or disable automatic loot rolling in dungeons and raids.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 36, -104, function(btn)
+local cbMaster = CreateCheckbox("AutoLazy_MasterEnable", "|cFF00FF00Enable Auto-Loot|r", "Master toggle to enable or disable automatic loot rolling in dungeons and raids.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 25, -104, function(btn)
     if AutoLazyDB then
         AutoLazyDB.Enabled = (btn:GetChecked() == 1 or btn:GetChecked() == true)
     end
 end)
 generalWidgets["Enabled"] = cbMaster
 
-local cbBop = CreateCheckbox("AutoLazy_OptBop", "Auto-Confirm BoP Dialogs", "Automatically confirms the 'Looting this item will bind it to you' popup globally.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 250, -104, function(btn)
+local cbBop = CreateCheckbox("AutoLazy_OptBop", "Auto-Confirm BoP Dialogs", "Automatically confirms the 'Looting this item will bind it to you' popup globally.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 260, -104, function(btn)
     if AutoLazyDB then
         AutoLazyDB.AutoConfirmBop = (btn:GetChecked() == 1 or btn:GetChecked() == true)
     end
 end)
 generalWidgets["AutoConfirmBop"] = cbBop
 
-local cbFarmOnly = CreateCheckbox("AutoLazy_FarmOnly", "|cFFFFFF00Farm items ONLY|r (Ignores gear)", "Only auto-roll on farm items (Sand, Coins, Bijous, Scarabs, Idols). Weapons and gear are skipped for manual rolling.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 36, -130, function(btn)
-    if AutoLazyDB then
-        AutoLazyDB.FarmOnly = (btn:GetChecked() == 1 or btn:GetChecked() == true)
-    end
-end)
-generalWidgets["FarmOnly"] = cbFarmOnly
-
-local cbChat = CreateCheckbox("AutoLazy_OptChat", "Chat Roll Alerts", "Prints a message in chat when AutoLazy rolls on an item.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 250, -130, function(btn)
+local cbChat = CreateCheckbox("AutoLazy_OptChat", "Chat Roll Alerts", "Prints a message in chat when AutoLazy rolls on an item.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 25, -130, function(btn)
     if AutoLazyDB then
         AutoLazyDB.AnnounceChat = (btn:GetChecked() == 1 or btn:GetChecked() == true)
     end
 end)
 generalWidgets["AnnounceChat"] = cbChat
 
-local secDungeons = tabLoot:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-secDungeons:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 36, -158)
-secDungeons:SetText("|cFFFFD100Dungeon Rules|r")
+-- Left Column: Dungeons List
+local lblDungeons = tabLoot:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+lblDungeons:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 25, -158)
+lblDungeons:SetText("|cFFFFD100Dungeons|r")
 
-local dungeonList = {
-    { key = "The Black Morass", name = "The Black Morass", items = "(Corrupted Sand)", y = -178 },
-    { key = "Zul'Gurub", name = "Zul'Gurub", items = "(Coins & Bijous)", y = -218 },
-    { key = "Ruins of Ahn'Qiraj", name = "Ruins of Ahn'Qiraj", items = "(Scarabs, Idols, Keys)", y = -258 },
-    { key = "Stratholme", name = "Stratholme", items = "(Scourgestones, Water)", y = -298 },
-    { key = "Scholomance", name = "Scholomance", items = "(Scourgestones, Runes)", y = -338 },
-    { key = "Blackrock Depths", name = "Blackrock Depths", items = "(Dark Iron Residue, Ore)", y = -378 },
+local dungeonOrder = {
+    "The Black Morass",
+    "Zul'Gurub",
+    "Ruins of Ahn'Qiraj",
+    "Naxxramas",
 }
 
-for i, d in ipairs(dungeonList) do
-    local dKey = d.key
-    dungeonWidgets[dKey] = {}
+local selectedDungeonKey = "The Black Morass"
+local dungeonButtons = {}
 
-    local lblTitle = tabLoot:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    lblTitle:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 36, d.y)
-    lblTitle:SetText(d.name .. "  |cFF888888" .. d.items .. "|r")
-
-    local cbActive = CreateCheckbox("AutoLazy_Active_" .. i, "Active", "Enable auto-rolling for " .. d.name, tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 36, d.y - 18, function(btn)
-        if AutoLazyDB and AutoLazyDB.Dungeons and AutoLazyDB.Dungeons[dKey] then
-            AutoLazyDB.Dungeons[dKey].Enabled = (btn:GetChecked() == 1 or btn:GetChecked() == true)
-        end
+for i, dKey in ipairs(dungeonOrder) do
+    local btn = CreateFrame("Button", "AutoLazy_DungeonBtn_" .. i, tabLoot, "UIPanelButtonTemplate")
+    btn:SetWidth(140)
+    btn:SetHeight(24)
+    btn:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 25, -178 - (i - 1) * 28)
+    btn:SetText(dKey)
+    btn.dungeonKey = dKey
+    btn:SetScript("OnClick", function(self)
+        local target = self or this or btn
+        selectedDungeonKey = target.dungeonKey
+        AutoLazy_UpdateGUI()
     end)
-    dungeonWidgets[dKey].Active = cbActive
-
-    local rNeed = CreateCheckbox("AutoLazy_Need_" .. i, "|cFFFF8000Need|r", "Auto-roll Need in " .. d.name, tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 145, d.y - 18, function(btn)
-        if AutoLazyDB and AutoLazyDB.Dungeons and AutoLazyDB.Dungeons[dKey] then
-            AutoLazyDB.Dungeons[dKey].Mode = "NEED"
-        end
-    end)
-    dungeonWidgets[dKey].Need = rNeed
-
-    local rGreed = CreateCheckbox("AutoLazy_Greed_" .. i, "|cFF00FF00Greed|r", "Auto-roll Greed in " .. d.name, tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 245, d.y - 18, function(btn)
-        if AutoLazyDB and AutoLazyDB.Dungeons and AutoLazyDB.Dungeons[dKey] then
-            AutoLazyDB.Dungeons[dKey].Mode = "GREED"
-        end
-    end)
-    dungeonWidgets[dKey].Greed = rGreed
-
-    local rPass = CreateCheckbox("AutoLazy_Pass_" .. i, "|cFF888888Pass|r", "Auto-roll Pass in " .. d.name, tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 345, d.y - 18, function(btn)
-        if AutoLazyDB and AutoLazyDB.Dungeons and AutoLazyDB.Dungeons[dKey] then
-            AutoLazyDB.Dungeons[dKey].Mode = "PASS"
-        end
-    end)
-    dungeonWidgets[dKey].Pass = rPass
+    dungeonButtons[dKey] = btn
 end
+
+local lblZone = tabLoot:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+lblZone:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 25, -300)
+lblZone:SetPoint("RIGHT", tabLoot, "TOPLEFT", 165, -300)
+lblZone:SetJustifyH("LEFT")
+lblZone:SetText("Zone: Detecting...")
+
+-- Right Column: Selected Dungeon Details & Items
+local lblSelectedTitle = tabLoot:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+lblSelectedTitle:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 180, -158)
+lblSelectedTitle:SetText("The Black Morass")
+
+local cbDungeonActive = CreateCheckbox("AutoLazy_DungeonActive", "Active in this Dungeon", "Enable or disable automatic rolling while inside this dungeon.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 180, -178, function(btn)
+    if AutoLazyDB and AutoLazyDB.Dungeons and AutoLazyDB.Dungeons[selectedDungeonKey] then
+        AutoLazyDB.Dungeons[selectedDungeonKey].Enabled = (btn:GetChecked() == 1 or btn:GetChecked() == true)
+    end
+end)
+
+local lblNonNeed = tabLoot:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+lblNonNeed:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 180, -204)
+lblNonNeed:SetText("|cFFFFD100When Auto-Need is OFF:|r")
+
+local cbNonNeedManual = CreateCheckbox("AutoLazy_NonNeedManual", "Roll Manually", "AutoLazy will not auto-roll on this item. The normal game roll dialog stays on your screen so you can roll or pass manually.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 180, -222, function()
+    if AutoLazyDB and AutoLazyDB.Dungeons and AutoLazyDB.Dungeons[selectedDungeonKey] then
+        AutoLazyDB.Dungeons[selectedDungeonKey].NonNeedMode = "MANUAL"
+    end
+    AutoLazy_UpdateGUI()
+end)
+
+local cbNonNeedGreed = CreateCheckbox("AutoLazy_NonNeedGreed", "Greed", "Automatically roll Greed on items that have Auto-Need turned Off.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 295, -222, function()
+    if AutoLazyDB and AutoLazyDB.Dungeons and AutoLazyDB.Dungeons[selectedDungeonKey] then
+        AutoLazyDB.Dungeons[selectedDungeonKey].NonNeedMode = "GREED"
+    end
+    AutoLazy_UpdateGUI()
+end)
+
+local cbNonNeedPass = CreateCheckbox("AutoLazy_NonNeedPass", "Pass", "Automatically pass on items that have Auto-Need turned Off.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 365, -222, function()
+    if AutoLazyDB and AutoLazyDB.Dungeons and AutoLazyDB.Dungeons[selectedDungeonKey] then
+        AutoLazyDB.Dungeons[selectedDungeonKey].NonNeedMode = "PASS"
+    end
+    AutoLazy_UpdateGUI()
+end)
+
+-- 5 Dynamic Item Rows
+local itemRows = {}
+for i = 1, 5 do
+    local row = CreateFrame("Frame", "AutoLazy_ItemRow_" .. i, tabLoot)
+    row:SetWidth(295)
+    row:SetHeight(34)
+    row:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 180, -248 - (i - 1) * 38)
+
+    local iconBtn = CreateFrame("Button", "AutoLazy_ItemIcon_" .. i, row)
+    iconBtn:SetWidth(28)
+    iconBtn:SetHeight(28)
+    iconBtn:SetPoint("LEFT", row, "LEFT", 0, 0)
+
+    local iconTex = iconBtn:CreateTexture(nil, "BORDER")
+    iconTex:SetWidth(24)
+    iconTex:SetHeight(24)
+    iconTex:SetPoint("CENTER", iconBtn, "CENTER", 0, 0)
+    row.iconTex = iconTex
+
+    local border = iconBtn:CreateTexture(nil, "OVERLAY")
+    border:SetWidth(38)
+    border:SetHeight(38)
+    border:SetPoint("CENTER", iconBtn, "CENTER", 0, 0)
+    border:SetTexture("Interface\\Buttons\\UI-Quickslot2")
+
+    iconBtn:SetScript("OnEnter", function(self)
+        local target = self or this or iconBtn
+        GameTooltip:SetOwner(target, "ANCHOR_RIGHT")
+        if row.itemId and row.itemId > 0 then
+            GameTooltip:SetHyperlink("item:" .. row.itemId .. ":0:0:0")
+        else
+            GameTooltip:SetText(row.itemName or "")
+        end
+        GameTooltip:Show()
+    end)
+    iconBtn:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+    row.iconBtn = iconBtn
+
+    local nameText = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    nameText:SetPoint("LEFT", iconBtn, "RIGHT", 10, 0)
+    nameText:SetPoint("RIGHT", row, "RIGHT", -75, 0)
+    nameText:SetJustifyH("LEFT")
+    row.nameText = nameText
+
+    local cbNeed = CreateFrame("CheckButton", "AutoLazy_ItemCb_" .. i, row, "UICheckButtonTemplate")
+    cbNeed:SetWidth(20)
+    cbNeed:SetHeight(20)
+    cbNeed:SetPoint("RIGHT", row, "RIGHT", -40, 0)
+
+    local cbNeedText = getglobal("AutoLazy_ItemCb_" .. i .. "Text")
+    if cbNeedText then
+        cbNeedText:SetPoint("LEFT", cbNeed, "RIGHT", 4, 1)
+        cbNeedText:SetFontObject("GameFontHighlightSmall")
+    end
+    row.cbNeedText = cbNeedText
+
+    cbNeed:SetScript("OnEnter", function(self)
+        local target = self or this or cbNeed
+        GameTooltip:SetOwner(target, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Toggle automatic Need rolling on/off for this item.", 1, 1, 1, 1, 1)
+        GameTooltip:Show()
+    end)
+    cbNeed:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
+    cbNeed:SetScript("OnClick", function(self)
+        local target = self or this or cbNeed
+        local checked = (target:GetChecked() == 1 or target:GetChecked() == true)
+        if row.ruleKey and AutoLazyDB and AutoLazyDB.ItemRules then
+            AutoLazyDB.ItemRules[row.ruleKey] = checked
+        end
+        AutoLazy_UpdateGUI()
+    end)
+    row.cbNeed = cbNeed
+
+    itemRows[i] = row
+end
+
+-- Quick Action Buttons
+local btnEnableAll = CreateFrame("Button", "AutoLazy_BtnEnableAll", tabLoot, "UIPanelButtonTemplate")
+btnEnableAll:SetWidth(90)
+btnEnableAll:SetHeight(20)
+btnEnableAll:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 180, -436)
+btnEnableAll:SetText("Enable All")
+btnEnableAll:SetScript("OnClick", function()
+    local items = AutoLazy_DungeonItems and AutoLazy_DungeonItems[selectedDungeonKey]
+    if items and AutoLazyDB and AutoLazyDB.ItemRules then
+        for _, itm in ipairs(items) do
+            local ruleKey = itm.key or string.lower(itm.name)
+            AutoLazyDB.ItemRules[ruleKey] = true
+        end
+        AutoLazy_UpdateGUI()
+    end
+end)
+
+local btnDisableAll = CreateFrame("Button", "AutoLazy_BtnDisableAll", tabLoot, "UIPanelButtonTemplate")
+btnDisableAll:SetWidth(90)
+btnDisableAll:SetHeight(20)
+btnDisableAll:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 275, -436)
+btnDisableAll:SetText("Disable All")
+btnDisableAll:SetScript("OnClick", function()
+    local items = AutoLazy_DungeonItems and AutoLazy_DungeonItems[selectedDungeonKey]
+    if items and AutoLazyDB and AutoLazyDB.ItemRules then
+        for _, itm in ipairs(items) do
+            local ruleKey = itm.key or string.lower(itm.name)
+            AutoLazyDB.ItemRules[ruleKey] = false
+        end
+        AutoLazy_UpdateGUI()
+    end
+end)
+
+local btnResetDefaults = CreateFrame("Button", "AutoLazy_BtnResetDefaults", tabLoot, "UIPanelButtonTemplate")
+btnResetDefaults:SetWidth(100)
+btnResetDefaults:SetHeight(20)
+btnResetDefaults:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 370, -436)
+btnResetDefaults:SetText("Reset Defaults")
+btnResetDefaults:SetScript("OnClick", function()
+    local items = AutoLazy_DungeonItems and AutoLazy_DungeonItems[selectedDungeonKey]
+    if items and AutoLazyDB and AutoLazyDB.ItemRules then
+        for _, itm in ipairs(items) do
+            local ruleKey = itm.key or string.lower(itm.name)
+            AutoLazyDB.ItemRules[ruleKey] = itm.defaultNeed
+        end
+        if AutoLazyDB.Dungeons and AutoLazyDB.Dungeons[selectedDungeonKey] then
+            AutoLazyDB.Dungeons[selectedDungeonKey].NonNeedMode = "MANUAL"
+        end
+        AutoLazy_UpdateGUI()
+    end
+end)
 
 --------------------------------------------------
 -- TAB 3: QUEST AUTOMATION
@@ -363,7 +511,7 @@ questWidgets["AlwaysActive"] = cbQuestAlways
 local btnStatus = CreateFrame("Button", "AutoLazy_BtnStatus", panel, "UIPanelButtonTemplate")
 btnStatus:SetWidth(130)
 btnStatus:SetHeight(24)
-btnStatus:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 36, 18)
+btnStatus:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 25, 18)
 btnStatus:SetText("Check Status")
 btnStatus:SetScript("OnClick", function()
     if AutoLazy_PrintStatus then AutoLazy_PrintStatus() end
@@ -372,7 +520,7 @@ end)
 local btnClose = CreateFrame("Button", "AutoLazy_BtnClose", panel, "UIPanelButtonTemplate")
 btnClose:SetWidth(120)
 btnClose:SetHeight(24)
-btnClose:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -36, 18)
+btnClose:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -25, 18)
 btnClose:SetText("Close")
 btnClose:SetScript("OnClick", function()
     panel:Hide()
@@ -393,9 +541,6 @@ function AutoLazy_UpdateGUI()
     end
 
     -- General options
-    if generalWidgets["FarmOnly"] then
-        generalWidgets["FarmOnly"]:SetChecked(AutoLazyDB.FarmOnly == true)
-    end
     if generalWidgets["AutoConfirmBop"] then
         generalWidgets["AutoConfirmBop"]:SetChecked(AutoLazyDB.AutoConfirmBop == true)
     end
@@ -403,18 +548,58 @@ function AutoLazy_UpdateGUI()
         generalWidgets["AnnounceChat"]:SetChecked(AutoLazyDB.AnnounceChat == true)
     end
 
-    -- Dungeon rows
-    if AutoLazyDB.Dungeons then
-        for dKey, widgets in pairs(dungeonWidgets) do
-            local cfg = AutoLazyDB.Dungeons[dKey]
-            if cfg then
-                if widgets.Active then
-                    widgets.Active:SetChecked(cfg.Enabled == true)
+    -- Tab 2 Master-Detail Dungeon and Items Synchronization
+    if selectedDungeonKey and dungeonButtons then
+        for dKey, btn in pairs(dungeonButtons) do
+            if dKey == selectedDungeonKey then
+                btn:LockHighlight()
+            else
+                btn:UnlockHighlight()
+            end
+        end
+
+        local curZone, _, curDef = AutoLazy_ResolveCurrentDungeon and AutoLazy_ResolveCurrentDungeon()
+        if curDef then
+            lblZone:SetText("|cFF00FF00In: " .. curDef.title .. "|r")
+        else
+            local z = (GetZoneText and GetZoneText()) or "World"
+            lblZone:SetText("|cFF888888Zone: " .. z .. "|r")
+        end
+
+        lblSelectedTitle:SetText(selectedDungeonKey)
+
+        local cfg = AutoLazyDB.Dungeons and AutoLazyDB.Dungeons[selectedDungeonKey]
+        if cfg then
+            cbDungeonActive:SetChecked(cfg.Enabled == true)
+            local nonNeed = cfg.NonNeedMode or "MANUAL"
+            cbNonNeedManual:SetChecked(nonNeed == "MANUAL")
+            cbNonNeedGreed:SetChecked(nonNeed == "GREED")
+            cbNonNeedPass:SetChecked(nonNeed == "PASS")
+        end
+
+        local items = AutoLazy_DungeonItems and AutoLazy_DungeonItems[selectedDungeonKey]
+        for i = 1, 5 do
+            local row = itemRows[i]
+            if row then
+                local itm = items and items[i]
+                if itm then
+                    row.itemId = itm.id
+                    row.itemName = itm.name
+                    row.ruleKey = itm.key or string.lower(itm.name)
+                    row.iconTex:SetTexture(itm.texture)
+
+                    local color = (itm.quality == 3 and "|cFF0070DD") or (itm.quality == 2 and "|cFF1EFF00") or (itm.quality == 4 and "|cFFA335EE") or "|cFFFFFFFF"
+                    row.nameText:SetText(color .. itm.name .. "|r")
+
+                    local isNeed = (AutoLazyDB.ItemRules and AutoLazyDB.ItemRules[row.ruleKey] == true)
+                    row.cbNeed:SetChecked(isNeed)
+                    if row.cbNeedText then
+                        row.cbNeedText:SetText(isNeed and "|cFFFF8000Need|r" or "|cFF888888Off|r")
+                    end
+                    row:Show()
+                else
+                    row:Hide()
                 end
-                local mode = cfg.Mode or "NEED"
-                if widgets.Need then widgets.Need:SetChecked(mode == "NEED") end
-                if widgets.Greed then widgets.Greed:SetChecked(mode == "GREED") end
-                if widgets.Pass then widgets.Pass:SetChecked(mode == "PASS") end
             end
         end
     end

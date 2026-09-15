@@ -1,7 +1,7 @@
 # AutoLazy
 
 [![Interface: 1.12.1](https://img.shields.io/badge/Interface-1.12.1%20(5875)-orange.svg)](https://github.com/Fostercare5988/AutoLazy)
-[![Version: 3.6.1](https://img.shields.io/badge/Version-3.6.1-blue.svg)](https://github.com/Fostercare5988/AutoLazy/releases)
+[![Version: 3.7.0](https://img.shields.io/badge/Version-3.7.0-blue.svg)](https://github.com/Fostercare5988/AutoLazy/releases)
 [![ClassicAPI: v1.14.0+](https://img.shields.io/badge/ClassicAPI-v1.14.0+-green.svg)](https://github.com/brues-code/ClassicAPI)
 [![SuperWoW: v2.2+](https://img.shields.io/badge/SuperWoW-v2.2+-brightgreen.svg)](https://github.com/balakethelock/SuperWoW)
 [![NamPower: v4.6.3+](https://img.shields.io/badge/NamPower-v4.6.3+-blueviolet.svg)](https://github.com/Emyrk/nampower)
@@ -9,7 +9,7 @@
 [![DXVK: Vulkan](https://img.shields.io/badge/DXVK-Vulkan-red.svg)](https://github.com/doitsujin/dxvk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**AutoLazy v3.6.1** is an enterprise-grade, zero-bloat dungeon automation and quality-of-life suite engineered natively for **World of Warcraft 1.12.1 (Build 5875)** running on the **Enhanced Client Extension Stack** (**ClassicAPI v1.14.0+**, **SuperWoW v2.2+**, **NamPower v4.6.3+**, **UnitXP SP3**, and **DXVK**).
+**AutoLazy v3.7.0** is an enterprise-grade, zero-bloat dungeon automation and quality-of-life suite engineered natively for **World of Warcraft 1.12.1 (Build 5875)** running on the **Enhanced Client Extension Stack** (**ClassicAPI v1.14.0+**, **SuperWoW v2.2+**, **NamPower v4.6.3+**, **UnitXP SP3**, and **DXVK**).
 
 It provides intelligent per-dungeon automated loot rolling, global BoP auto-confirmation, continuous Shift-hold repeatable quest chaining, a draggable floating hub with popup Addon Tray, and reversible client bloat suppression (including suppression of custom server pirate radio and group finder elements).
 
@@ -52,14 +52,14 @@ AutoLazy is engineered around strict low-level system integration:
   - **Group Finder (LFG)**: Suppresses custom meeting stone / LFG eye buttons without popping open dialog frames upon restoration.
 
 ### 2. Loot & Dungeons
-- **Per-Dungeon Rules**: Direct, individual control over **Need**, **Greed**, or **Pass** in specific instances:
-  - **The Black Morass**: *(Corrupted Sand)*
-  - **Zul'Gurub**: *(9 Tribal Coins & 9 Hakkari Bijous)*
-  - **Ruins of Ahn'Qiraj**: *(8 Scarabs, 9 Idols, Coffer Keys & Shards)*
-  - **Stratholme**: *(Scourgestones & Holy Water)*
-  - **Scholomance**: *(Scourgestones & Dark Runes)*
-  - **Blackrock Depths**: *(Dark Iron Residue & Dark Iron Ore)*
-- **Farm Items ONLY**: Only auto-rolls on spam farm and currency drops while ignoring weapons and armor so you can roll manually.
+- **Master-Detail Item Dashboard**: Visual item cards featuring 28x28 item icons, item quality coloring, live `GameTooltip` inspection, and per-item **Auto-Need ON/OFF toggles**.
+- **Strict Tedious Items Whitelist**: AutoLazy exclusively operates on tedious farm items. All unlisted items (weapons, armor, consumables, quest drops) are 100% ignored, completely preventing accidental ninja-looting:
+  - **The Black Morass**: *Corrupted Sand* (Auto-Need: ON).
+  - **Zul'Gurub**: *Bijous* (Auto-Need: ON) & *Coins* (Auto-Need: ON).
+  - **Ruins of Ahn'Qiraj (AQ20)**: *Scarabs* (Auto-Need: ON) & *Idols* (Safe: OFF).
+  - **Naxxramas**: *Wartorn Cloth Scrap*, *Wartorn Leather Scrap*, *Wartorn Chain Scrap*, *Wartorn Plate Scrap* (Auto-Need: ON).
+- **Flexible Non-Need Fallback**: When an item's Auto-Need is toggled OFF, choose whether AutoLazy leaves the roll open for manual rolling (**Roll Manually** [Default]), rolls **Greed**, or **Passes**.
+- **Quick Action Controls**: One-click `Enable All`, `Disable All`, and `Reset Defaults` buttons for rapid dungeon profile customization.
 - **Dual-Path Global BoP Auto-Confirm**: Automatically confirms both dungeon roll popups (`CONFIRM_LOOT_ROLL`) and direct corpse pickup dialogs (`LOOT_BIND_CONFIRM`) globally.
 - **Chat Alerts**: Announces automated rolls on dropped items in chat.
 
@@ -97,7 +97,6 @@ Use `/al` or `/autolazy` (or `/ar`):
 | `/al radio` | Toggles Booty Bay Pirate Radio & broadcasting towers suppression |
 | `/al lfg` | Toggles Group Finder (LFG) suppression |
 | `/al toggle` | Toggles Dungeon Auto-Loot ON / OFF |
-| `/al farm` | Toggles Farm Items ONLY mode |
 | `/al quest` | Toggles Shift-Click Quest Automation |
 | `/al bop` | Toggles automatic confirmation of BoP popups |
 | `/al chat` | Toggles chat roll alerts |
@@ -130,6 +129,14 @@ Use `/al` or `/autolazy` (or `/ar`):
 ---
 
 ## 📜 Changelog
+
+### v3.7.0
+- **Master-Detail Loot Dashboard**: Re-engineered Tab 2 with interactive 28x28 item icons, item quality coloring, live tooltip inspection, and granular per-item Auto-Need ON/OFF toggles.
+- **Strict Tedious Items Whitelist**: Scoped dungeon automation strictly to high-volume tedious farm items (The Black Morass Corrupted Sand, Zul'Gurub Bijous & Coins, AQ20 Scarabs & Idols, and Naxxramas Wartorn Scraps).
+- **Naxxramas Tier 3 Armor Scraps**: Added support for Wartorn Cloth, Leather, Chain, and Plate Scraps with icons and quality borders.
+- **Removed FarmOnly Toggle**: Completely eliminated the redundant "Farm items ONLY" setting; all unlisted items (gear, weapons, quest drops) are 100% ignored by default.
+- **Pruned Non-Essential Dungeons**: Removed Blackrock Depths, Stratholme, and Scholomance from loot rolling.
+- **Safe Fallback Actions**: Added configurable non-need actions (`Roll Manually` [Default], `Greed`, or `Pass`) when an item's Auto-Need is disabled.
 
 ### v3.6.1
 - **Zero-Allocation Hierarchy & Region Scanning**: Eliminated runtime closure instantiation inside `MatchesFrameKeywords` and `HasRenderableVisual` by replacing recursive inner closures with static `select(i, ...)`-based iterators.
