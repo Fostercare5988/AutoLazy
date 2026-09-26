@@ -1,17 +1,17 @@
 --[[
     AutoLazy v3.7.0
     Author & Maintainer: Fostercare5988
-    Target: World of Warcraft 1.12.1 (Vanilla Enhanced Stack: ClassicAPI v1.14.0+, SuperWoW 2.2+, NamPower, UnitXP SP3, DXVK)
+    Target: World of Warcraft 1.12.1 (Vanilla Enhanced Stack: ClassicAPI v1.15.14+, SuperWoW 2.2+, UnitXP SP3)
     Description: High-performance dungeon loot automation, continuous repeatable quest turn-ins, Floating Addon Tray, and Reversible System Bloat Suppression.
 ]]
 
--- Strict Engine Dependency Guard (Mandatory ClassicAPI v1.14.0+ & SuperWoW v2.2+)
-local MIN_CLASSIC_API = 11400
+-- Strict Engine Dependency Guard (Mandatory ClassicAPI v1.15.14+ & SuperWoW v2.2+)
+local MIN_CLASSIC_API = 11514
 
 if not (CLASSIC_API_VERSION and SUPERWOW_VERSION) or 
    (type(CLASSIC_API_VERSION) == "number" and CLASSIC_API_VERSION < MIN_CLASSIC_API) then
     if DEFAULT_CHAT_FRAME then
-        DEFAULT_CHAT_FRAME:AddMessage("|cffff2020[AutoLazy Fatal Error]|r AutoLazy requires ClassicAPI (v1.14.0+) & SuperWoW (v2.2+)! Please ensure both DLLs are loaded.", 1, 0.2, 0.2)
+        DEFAULT_CHAT_FRAME:AddMessage("|cffff2020[AutoLazy Fatal Error]|r AutoLazy requires ClassicAPI (v1.15.14+) & SuperWoW (v2.2+)! Please ensure both DLLs are loaded.", 1, 0.2, 0.2)
     end
     return
 end
@@ -39,28 +39,24 @@ local DungeonDefinitions = {
         title = "The Black Morass",
         itemDesc = "Corrupted Sand",
         aliases = { "the black morass", "black morass", "opening of the dark portal", "dark portal" },
-        defaultMode = "NEED",
     },
     {
         key = "Zul'Gurub",
         title = "Zul'Gurub",
         itemDesc = "Coins & Bijous",
         aliases = { "zul'gurub", "zulgurub", "zg" },
-        defaultMode = "NEED",
     },
     {
         key = "Ruins of Ahn'Qiraj",
         title = "Ruins of Ahn'Qiraj",
         itemDesc = "Scarabs & Idols",
         aliases = { "ruins of ahn'qiraj", "ahn'qiraj ruins", "aq20", "ruins of ahnqiraj" },
-        defaultMode = "NEED",
     },
     {
         key = "Naxxramas",
         title = "Naxxramas",
         itemDesc = "Wartorn Scraps",
         aliases = { "naxxramas", "naxx" },
-        defaultMode = "NEED",
     },
 }
 
@@ -225,22 +221,16 @@ local defaultDB = {
         HideLfg   = true,
         CollapseAddons = true,
     },
-    Dungeons = {
-        ["The Black Morass"] = { Enabled = true, Mode = "NEED", NonNeedMode = "MANUAL" },
-        ["Zul'Gurub"] = { Enabled = true, Mode = "NEED", NonNeedMode = "MANUAL" },
-        ["Ruins of Ahn'Qiraj"] = { Enabled = true, Mode = "NEED", NonNeedMode = "MANUAL" },
-        ["Naxxramas"] = { Enabled = true, Mode = "NEED", NonNeedMode = "MANUAL" },
-    },
     ItemRules = {
-        ["zg bijous"] = true,
-        ["zg coins"] = true,
-        ["aq20 scarabs"] = true,
-        ["aq20 idols"] = false,
-        ["corrupted sand"] = true,
-        ["wartorn cloth scrap"] = true,
-        ["wartorn leather scrap"] = true,
-        ["wartorn chain scrap"] = true,
-        ["wartorn plate scrap"] = true,
+        ["zg bijous"] = "NEED",
+        ["zg coins"] = "NEED",
+        ["aq20 scarabs"] = "NEED",
+        ["aq20 idols"] = "MANUAL",
+        ["corrupted sand"] = "NEED",
+        ["wartorn cloth scrap"] = "NEED",
+        ["wartorn leather scrap"] = "NEED",
+        ["wartorn chain scrap"] = "NEED",
+        ["wartorn plate scrap"] = "NEED",
     },
     Quests = {
         Enabled = true,
@@ -252,7 +242,6 @@ local defaultDB = {
 }
 
 local CachedDungeonKey = nil
-local CachedDungeonCfg = nil
 local CachedDungeonDef = nil
 
 function AutoLazy_Print(msg)
@@ -274,48 +263,44 @@ local function InitDB()
     if AutoLazyDB.ShowButton == nil then AutoLazyDB.ShowButton = defaultDB.ShowButton end
     if not AutoLazyDB.ButtonPos then AutoLazyDB.ButtonPos = {} end
 
-    -- Cleanup legacy settings and removed dungeon/item records
+    -- Keep the saved rule set identical to the items shown in the loot UI.
     AutoLazyDB.FarmOnly = nil
-    if AutoLazyDB.Dungeons then
-        AutoLazyDB.Dungeons["Scholomance"] = nil
-        AutoLazyDB.Dungeons["Stratholme"] = nil
-        AutoLazyDB.Dungeons["Blackrock Depths"] = nil
-    end
-    if AutoLazyDB.ItemRules then
-        AutoLazyDB.ItemRules["dark rune"] = nil
-        AutoLazyDB.ItemRules["skin of shadow"] = nil
-        AutoLazyDB.ItemRules["corruptor's scourgestone"] = nil
-        AutoLazyDB.ItemRules["invader's scourgestone"] = nil
-        AutoLazyDB.ItemRules["minion's scourgestone"] = nil
-        AutoLazyDB.ItemRules["relic coffer key"] = nil
-        AutoLazyDB.ItemRules["aq20 keys"] = nil
-    end
 
     if not AutoLazyDB.Tweaks then AutoLazyDB.Tweaks = {} end
     if AutoLazyDB.Tweaks.HideRadio == nil then AutoLazyDB.Tweaks.HideRadio = defaultDB.Tweaks.HideRadio end
     if AutoLazyDB.Tweaks.HideLfg == nil then AutoLazyDB.Tweaks.HideLfg = defaultDB.Tweaks.HideLfg end
     if AutoLazyDB.Tweaks.CollapseAddons == nil then AutoLazyDB.Tweaks.CollapseAddons = defaultDB.Tweaks.CollapseAddons end
 
-    if not AutoLazyDB.Dungeons then AutoLazyDB.Dungeons = {} end
-    for _, def in ipairs(DungeonDefinitions) do
-        if not AutoLazyDB.Dungeons[def.key] then
-            AutoLazyDB.Dungeons[def.key] = { Enabled = true, Mode = def.defaultMode, NonNeedMode = "MANUAL" }
-        else
-            if AutoLazyDB.Dungeons[def.key].Enabled == nil then AutoLazyDB.Dungeons[def.key].Enabled = true end
-            if not AutoLazyDB.Dungeons[def.key].Mode then AutoLazyDB.Dungeons[def.key].Mode = def.defaultMode end
-            if not AutoLazyDB.Dungeons[def.key].NonNeedMode then AutoLazyDB.Dungeons[def.key].NonNeedMode = "MANUAL" end
-        end
-    end
-
     if not AutoLazyDB.ItemRules then AutoLazyDB.ItemRules = {} end
+    for ruleKey in pairs(AutoLazyDB.ItemRules) do
+        if defaultDB.ItemRules[ruleKey] == nil then AutoLazyDB.ItemRules[ruleKey] = nil end
+    end
+    local migratingLootRules = AutoLazyDB.LootRulesVersion ~= 2
     for dKey, items in pairs(DungeonItems) do
+        local oldDungeon = AutoLazyDB.Dungeons and AutoLazyDB.Dungeons[dKey]
+        local oldFallback = oldDungeon and oldDungeon.NonNeedMode or "MANUAL"
+        if oldFallback ~= "GREED" and oldFallback ~= "PASS" then oldFallback = "MANUAL" end
+        local wasDisabled = oldDungeon and (oldDungeon.Enabled == false or oldDungeon.Mode == "OFF")
         for _, itm in ipairs(items) do
             local ruleKey = itm.key or string.lower(itm.name)
-            if AutoLazyDB.ItemRules[ruleKey] == nil then
-                AutoLazyDB.ItemRules[ruleKey] = itm.defaultNeed
+            local action = AutoLazyDB.ItemRules[ruleKey]
+            if migratingLootRules then
+                if wasDisabled then
+                    action = "MANUAL"
+                elseif action == true then
+                    action = "NEED"
+                elseif action == false then
+                    action = oldFallback
+                end
             end
+            if action ~= "MANUAL" and action ~= "NEED" and action ~= "GREED" and action ~= "PASS" then
+                action = defaultDB.ItemRules[ruleKey]
+            end
+            AutoLazyDB.ItemRules[ruleKey] = action
         end
     end
+    AutoLazyDB.Dungeons = nil
+    AutoLazyDB.LootRulesVersion = 2
 
     if not AutoLazyDB.Quests then AutoLazyDB.Quests = {} end
     for qk, qv in pairs(defaultDB.Quests) do
@@ -324,47 +309,44 @@ local function InitDB()
 end
 
 local function MatchDungeonKey(zoneText)
-    if not zoneText or zoneText == "" or not AutoLazyDB or not AutoLazyDB.Dungeons then return nil, nil, nil end
+    if not zoneText or zoneText == "" then return nil, nil end
     local norm = string.lower(zoneText)
 
     for _, def in ipairs(DungeonDefinitions) do
-        local cfg = AutoLazyDB.Dungeons[def.key]
-        if cfg then
-            local normKey = string.lower(def.key)
-            if norm == normKey or string.find(norm, normKey, 1, true) or string.find(normKey, norm, 1, true) then
-                return def.key, cfg, def
-            end
-            for _, alias in ipairs(def.aliases) do
-                if norm == alias or string.find(norm, alias, 1, true) or string.find(alias, norm, 1, true) then
-                    return def.key, cfg, def
-                end
+        local normKey = string.lower(def.key)
+        if norm == normKey or string.find(norm, normKey, 1, true) or string.find(normKey, norm, 1, true) then
+            return def.key, def
+        end
+        for _, alias in ipairs(def.aliases) do
+            if norm == alias or string.find(norm, alias, 1, true) or string.find(alias, norm, 1, true) then
+                return def.key, def
             end
         end
     end
-    return nil, nil, nil
+    return nil, nil
 end
 
 function AutoLazy_ResolveCurrentDungeon()
-    if not AutoLazyDB then return nil, nil, nil end
+    if not AutoLazyDB then return nil, nil end
     local rz = (GetRealZoneText and GetRealZoneText()) or ""
     local z  = (GetZoneText and GetZoneText()) or ""
     local sz = (GetSubZoneText and GetSubZoneText()) or ""
     local mz = (GetMinimapZoneText and GetMinimapZoneText()) or ""
 
-    local key, cfg, def = MatchDungeonKey(rz)
-    if key then return key, cfg, def end
-    key, cfg, def = MatchDungeonKey(z)
-    if key then return key, cfg, def end
-    key, cfg, def = MatchDungeonKey(sz)
-    if key then return key, cfg, def end
-    key, cfg, def = MatchDungeonKey(mz)
-    if key then return key, cfg, def end
-    return nil, nil, nil
+    local key, def = MatchDungeonKey(rz)
+    if key then return key, def end
+    key, def = MatchDungeonKey(z)
+    if key then return key, def end
+    key, def = MatchDungeonKey(sz)
+    if key then return key, def end
+    key, def = MatchDungeonKey(mz)
+    if key then return key, def end
+    return nil, nil
 end
 
 local function UpdateZoneCache()
     local prevKey = CachedDungeonKey
-    CachedDungeonKey, CachedDungeonCfg, CachedDungeonDef = AutoLazy_ResolveCurrentDungeon()
+    CachedDungeonKey, CachedDungeonDef = AutoLazy_ResolveCurrentDungeon()
     if prevKey ~= CachedDungeonKey and table.wipe then
         table.wipe(ItemEvaluationCache)
     end
@@ -981,14 +963,13 @@ function AutoLazy_PrintStatus()
     local bopStatus = AutoLazyDB.AutoConfirmBop and "|cFF00FF00ON|r" or "|cFFFF2020OFF|r"
     local questMode = (AutoLazyDB.Quests and AutoLazyDB.Quests.AlwaysActive) and "Always" or "Shift-Click"
     local questStatus = (AutoLazyDB.Quests and AutoLazyDB.Quests.Enabled) and ("|cFF00FF00ON (" .. questMode .. ")|r") or "|cFFFF2020OFF|r"
-    AutoLazy_Print("Dungeon Auto-Loot: " .. masterStatus .. " | BoP: " .. bopStatus .. " | Quests: " .. questStatus)
+    AutoLazy_Print("Listed item auto-roll: " .. masterStatus .. " | BoP confirmation: " .. bopStatus .. " | Quests: " .. questStatus)
 
     local currentZone = (GetRealZoneText and GetRealZoneText()) or (GetZoneText and GetZoneText()) or "Unknown"
-    if CachedDungeonKey and CachedDungeonCfg and CachedDungeonCfg.Enabled then
-        local nonNeed = CachedDungeonCfg.NonNeedMode or "MANUAL"
-        AutoLazy_Print("Current Zone: |cFF00FF00" .. currentZone .. "|r (Active: " .. (CachedDungeonDef and CachedDungeonDef.title or CachedDungeonKey) .. " | Non-Need: |cFFFFD100" .. nonNeed .. "|r)")
+    if CachedDungeonKey then
+        AutoLazy_Print("Current Zone: |cFF00FF00" .. currentZone .. "|r (Listed items: " .. (CachedDungeonDef and CachedDungeonDef.title or CachedDungeonKey) .. ")")
     else
-        AutoLazy_Print("Current Zone: |cFFFF8080" .. currentZone .. "|r (Auto-Loot inactive here)")
+        AutoLazy_Print("Current Zone: |cFFFF8080" .. currentZone .. "|r (No listed items here)")
     end
 end
 
@@ -1416,7 +1397,7 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
         AutoLazy_CollapseAddons()
 
     elseif ev == "START_LOOT_ROLL" then
-        if not AutoLazyDB or not AutoLazyDB.Enabled or not CachedDungeonKey or not CachedDungeonCfg or not CachedDungeonCfg.Enabled or CachedDungeonCfg.Mode == "OFF" then
+        if not AutoLazyDB or not AutoLazyDB.Enabled or not CachedDungeonKey then
             return
         end
 
@@ -1427,29 +1408,23 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
         local itemLink = GetLootRollItemLink(rollId) or (name and ("[" .. name .. "]")) or ("Item #" .. rollId)
 
         -- Strict Gate: AutoLazy ONLY rolls on the explicitly configured tedious items
-        local autoNeed = AutoLazy_GetItemRule(name)
-        if autoNeed == nil then
+        local action = AutoLazy_GetItemRule(name)
+        if not action or action == "MANUAL" then
             return
         end
 
         local rollType = nil
         local actionName = nil
 
-        if autoNeed == true then
+        if action == "NEED" then
             rollType = LOOT_ROLL_NEED
             actionName = "|cFFFF8000Need|r"
-        else
-            local nonNeedMode = CachedDungeonCfg.NonNeedMode or "MANUAL"
-            if nonNeedMode == "GREED" then
-                rollType = LOOT_ROLL_GREED
-                actionName = "|cFF00FF00Greed|r"
-            elseif nonNeedMode == "PASS" then
-                rollType = LOOT_ROLL_PASS
-                actionName = "|cFF808080Passed|r"
-            else
-                -- MANUAL (Skip): Leave the loot roll on screen for manual player choice
-                return
-            end
+        elseif action == "GREED" then
+            rollType = LOOT_ROLL_GREED
+            actionName = "|cFF00FF00Greed|r"
+        elseif action == "PASS" then
+            rollType = LOOT_ROLL_PASS
+            actionName = "|cFF808080Passed|r"
         end
 
         if rollType ~= nil then
@@ -1462,7 +1437,7 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
     elseif ev == "CONFIRM_LOOT_ROLL" then
         if not AutoLazyDB or not AutoLazyDB.Enabled or not AutoLazyDB.AutoConfirmBop then return end
         local rollId = a1
-        local rollType = a2 or ((CachedDungeonCfg and CachedDungeonCfg.Mode == "NEED") and LOOT_ROLL_NEED or LOOT_ROLL_GREED)
+        local rollType = a2
         if rollId and rollType then
             ConfirmLootRoll(rollId, rollType)
             DismissConfirmPopups(rollId)
@@ -1545,11 +1520,11 @@ local slashToggles = {
     reset = function() AutoLazy_ResetActionButtonPos() end,
     toggle = function()
         AutoLazyDB.Enabled = not AutoLazyDB.Enabled
-        AutoLazy_Print("Dungeon Auto-Loot is now " .. (AutoLazyDB.Enabled and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
+        AutoLazy_Print("Listed item auto-roll is now " .. (AutoLazyDB.Enabled and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
         if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end
     end,
-    on = function() AutoLazyDB.Enabled = true; AutoLazy_Print("Dungeon Auto-Loot is now |cFF00FF00ENABLED|r."); if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end end,
-    off = function() AutoLazyDB.Enabled = false; AutoLazy_Print("Dungeon Auto-Loot is now |cFFFF2020DISABLED|r."); if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end end,
+    on = function() AutoLazyDB.Enabled = true; AutoLazy_Print("Listed item auto-roll is now |cFF00FF00ENABLED|r."); if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end end,
+    off = function() AutoLazyDB.Enabled = false; AutoLazy_Print("Listed item auto-roll is now |cFFFF2020DISABLED|r."); if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end end,
 
     quest = function()
         AutoLazyDB.Quests.Enabled = not AutoLazyDB.Quests.Enabled

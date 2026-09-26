@@ -2,14 +2,12 @@
 
 [![Interface: 1.12.1](https://img.shields.io/badge/Interface-1.12.1%20(5875)-orange.svg)](https://github.com/Fostercare5988/AutoLazy)
 [![Version: 3.7.0](https://img.shields.io/badge/Version-3.7.0-blue.svg)](https://github.com/Fostercare5988/AutoLazy/releases)
-[![ClassicAPI: v1.14.0+](https://img.shields.io/badge/ClassicAPI-v1.14.0+-green.svg)](https://github.com/brues-code/ClassicAPI)
+[![ClassicAPI: v1.15.14+](https://img.shields.io/badge/ClassicAPI-v1.15.14+-green.svg)](https://github.com/brues-code/ClassicAPI)
 [![SuperWoW: v2.2+](https://img.shields.io/badge/SuperWoW-v2.2+-brightgreen.svg)](https://github.com/balakethelock/SuperWoW)
-[![NamPower: v4.6.3+](https://img.shields.io/badge/NamPower-v4.6.3+-blueviolet.svg)](https://github.com/Emyrk/nampower)
 [![UnitXP: SP3](https://img.shields.io/badge/UnitXP-SP3-teal.svg)](https://codeberg.org/konaka/UnitXP_SP3)
-[![DXVK: Vulkan](https://img.shields.io/badge/DXVK-Vulkan-red.svg)](https://github.com/doitsujin/dxvk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**AutoLazy v3.7.0** is an enterprise-grade, zero-bloat dungeon automation and quality-of-life suite engineered natively for **World of Warcraft 1.12.1 (Build 5875)** running on the **Enhanced Client Extension Stack** (**ClassicAPI v1.14.0+**, **SuperWoW v2.2+**, **NamPower v4.6.3+**, **UnitXP SP3**, and **DXVK**).
+**AutoLazy v3.7.0** is a dungeon automation and quality-of-life addon for **World of Warcraft 1.12.1 (Build 5875)** running on the **Enhanced Client Extension Stack** (**ClassicAPI v1.15.14+**, **SuperWoW v2.2+**, and **UnitXP SP3**).
 
 It provides intelligent per-dungeon automated loot rolling, global BoP auto-confirmation, continuous Shift-hold repeatable quest chaining, a draggable floating hub with popup Addon Tray, and reversible client bloat suppression (including suppression of custom server pirate radio and group finder elements).
 
@@ -23,11 +21,9 @@ AutoLazy is engineered around strict low-level system integration:
 
 | Engine Component | Minimum Version | Architectural Role & Implementation |
 | :--- | :--- | :--- |
-| **ClassicAPI** | `v1.14.0+` | C++ hardware timers (`C_Timer.After`), modern structured quest information (`C_GossipInfo`), native `table.wipe` memory recycling, and source-rewritten Lua 5.1 syntax. |
-| **SuperWoW** | `v2.2+` | Direct memory state access, OS-level window alerting, and zero-latency packet synchronization. |
-| **NamPower** | `v4.6.3+` | Microsecond-precision combat pipeline and frame-0 event dispatching for loot rolling and quest chaining. |
+| **ClassicAPI** | `v1.15.14+` | C++ hardware timers (`C_Timer.After`), modern structured quest information (`C_GossipInfo`), native `table.wipe` memory recycling, and source-rewritten Lua 5.1 syntax. |
+| **SuperWoW** | `v2.2+` | Direct memory state access, OS-level window alerting, and packet-based event synchronization. |
 | **UnitXP** | `SP3` | High-precision unit state inspection and target validation. |
-| **DXVK** | `Latest` | Decoupled high-refresh frame pacing with zero garbage collection heap churn. |
 
 ### Elimination of 2006 Legacy Techniques
 - **Zero OnUpdate Polling**: Frame-based `OnUpdate` polling loops are eradicated; all periodic scans run on C++ hardware tickers.
@@ -52,15 +48,15 @@ AutoLazy is engineered around strict low-level system integration:
   - **Group Finder (LFG)**: Suppresses custom meeting stone / LFG eye buttons without popping open dialog frames upon restoration.
 
 ### 2. Loot & Dungeons
-- **Master-Detail Item Dashboard**: Visual item cards featuring 28x28 item icons, item quality coloring, live `GameTooltip` inspection, and per-item **Auto-Need ON/OFF toggles**.
-- **Strict Tedious Items Whitelist**: AutoLazy exclusively operates on tedious farm items. All unlisted items (weapons, armor, consumables, quest drops) are 100% ignored, completely preventing accidental ninja-looting:
-  - **The Black Morass**: *Corrupted Sand* (Auto-Need: ON).
-  - **Zul'Gurub**: *Bijous* (Auto-Need: ON) & *Coins* (Auto-Need: ON).
-  - **Ruins of Ahn'Qiraj (AQ20)**: *Scarabs* (Auto-Need: ON) & *Idols* (Safe: OFF).
-  - **Naxxramas**: *Wartorn Cloth Scrap*, *Wartorn Leather Scrap*, *Wartorn Chain Scrap*, *Wartorn Plate Scrap* (Auto-Need: ON).
-- **Flexible Non-Need Fallback**: When an item's Auto-Need is toggled OFF, choose whether AutoLazy leaves the roll open for manual rolling (**Roll Manually** [Default]), rolls **Greed**, or **Passes**.
-- **Quick Action Controls**: One-click `Enable All`, `Disable All`, and `Reset Defaults` buttons for rapid dungeon profile customization.
-- **Dual-Path Global BoP Auto-Confirm**: Automatically confirms both dungeon roll popups (`CONFIRM_LOOT_ROLL`) and direct corpse pickup dialogs (`LOOT_BIND_CONFIRM`) globally.
+- **One action per listed item**: In `/al` → Loot & Dungeons, choose exactly one of **Manual**, **Need**, **Greed**, or **Pass** for each item. Manual leaves the normal roll window open. The single **Auto-roll listed items** checkbox pauses or resumes these choices; unlisted items are never rolled by AutoLazy.
+- **Listed items and defaults**:
+  - **The Black Morass**: *Corrupted Sand* (Need).
+  - **Zul'Gurub**: *Bijous* and *Coins* (Need).
+  - **Ruins of Ahn'Qiraj (AQ20)**: *Scarabs* (Need) and *Idols* (Manual).
+  - **Naxxramas**: *Wartorn Cloth, Leather, Chain, and Plate Scraps* (Need).
+- **Reset This Dungeon** restores those item defaults for the selected dungeon.
+- **BoP confirmation** is a separate option that confirms bind-on-pickup roll and direct-loot dialogs while auto-roll is enabled.
+- **One-time settings migration** converts prior Auto-Need and fallback choices to item actions. A previously disabled dungeon becomes Manual for all its listed items, and obsolete per-dungeon settings are removed.
 - **Chat Alerts**: Announces automated rolls on dropped items in chat.
 
 ### 3. Continuous Repeatable Quest Automation
@@ -96,11 +92,11 @@ Use `/al` or `/autolazy` (or `/ar`):
 | `/al resetpos` | Resets the Floating Hub Button position to the top right |
 | `/al radio` | Toggles Booty Bay Pirate Radio & broadcasting towers suppression |
 | `/al lfg` | Toggles Group Finder (LFG) suppression |
-| `/al toggle` | Toggles Dungeon Auto-Loot ON / OFF |
+| `/al toggle` | Pauses or resumes automatic rolls for listed items |
 | `/al quest` | Toggles Shift-Click Quest Automation |
 | `/al bop` | Toggles automatic confirmation of BoP popups |
 | `/al chat` | Toggles chat roll alerts |
-| `/al status` | Displays active dungeon detection and per-instance modes in chat |
+| `/al status` | Displays auto-roll state and current dungeon detection in chat |
 
 ---
 
@@ -108,11 +104,9 @@ Use `/al` or `/autolazy` (or `/ar`):
 
 ### Prerequisites
 1. **World of Warcraft 1.12.1** (Build 5875).
-2. [**ClassicAPI v1.14.0+**](https://github.com/brues-code/ClassicAPI) (`ClassicAPI.dll`).
+2. [**ClassicAPI v1.15.14+**](https://github.com/brues-code/ClassicAPI) (`ClassicAPI.dll`).
 3. [**SuperWoW v2.2+**](https://github.com/balakethelock/SuperWoW) (`SuperWoW.dll`).
-4. [**NamPower v4.6.3+**](https://github.com/Emyrk/nampower) (`nampower.dll`).
-5. [**UnitXP SP3**](https://codeberg.org/konaka/UnitXP_SP3) (`UnitXP_SP3.dll`).
-6. [**DXVK**](https://github.com/doitsujin/dxvk) & [**VanillaFixes**](https://github.com/hannesmann/vanillafixes).
+4. [**UnitXP SP3**](https://codeberg.org/konaka/UnitXP_SP3) (`UnitXP_SP3.dll`).
 
 ### Step-by-Step Installation
 1. Clone or download the repository into your WoW AddOns directory:
@@ -129,6 +123,10 @@ Use `/al` or `/autolazy` (or `/ar`):
 ---
 
 ## 📜 Changelog
+
+### Unreleased
+- Replaced overlapping dungeon, fallback, and Auto-Need toggles with one action per listed item: Manual, Need, Greed, or Pass.
+- Preserved existing choices through a one-time SavedVariables migration; removed obsolete per-dungeon state.
 
 ### v3.7.0
 - **Master-Detail Loot Dashboard**: Re-engineered Tab 2 with interactive 28x28 item icons, item quality coloring, live tooltip inspection, and granular per-item Auto-Need ON/OFF toggles.
@@ -168,7 +166,7 @@ Use `/al` or `/autolazy` (or `/ar`):
 
 ### v3.2.1
 - **Continuous Repeatable Quest Chaining**: Added `QUEST_FINISHED` automated event chaining, allowing players to hold Shift and rapidly turn in stacks of repeatable turn-ins back-to-back.
-- **Zero-Bloat Consolidation**: Unified system frame detection into `MatchesFrameKeywords` and streamlined startup scan.
+- **System Detection Consolidation**: Unified system frame detection into `MatchesFrameKeywords` and streamlined startup scan.
 - **GUI Centering**: Symmetrically balanced Tab 1 (Tweaks), Tab 2 (Loot), and Tab 3 (Quests) with increased header breathing room.
 
 ---
