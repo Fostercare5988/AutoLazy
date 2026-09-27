@@ -1,15 +1,15 @@
 # AutoLazy
 
-Recommended ClassicAPI version: **v1.15.15+**. The existing enforced addon minimum remains unchanged because this update introduces no required new API calls. Native equipment-set action buttons require v1.15.15; after updating the DLL, fully restart the game client.
+Required ClassicAPI version: **v1.15.15+**. This is the maintainer's published support baseline for this addon suite; it is not a claim that every API used here was introduced in v1.15.15. After replacing ClassicAPI.dll, fully restart WoW; `/reload` cannot reload a DLL.
 
 [![Interface: 1.12.1](https://img.shields.io/badge/Interface-1.12.1%20(5875)-orange.svg)](https://github.com/Fostercare5988/AutoLazy)
 [![Version: 3.7.0](https://img.shields.io/badge/Version-3.7.0-blue.svg)](https://github.com/Fostercare5988/AutoLazy/releases)
-[![ClassicAPI: v1.15.14+](https://img.shields.io/badge/ClassicAPI-v1.15.14+-green.svg)](https://github.com/brues-code/ClassicAPI)
+[![ClassicAPI: v1.15.15+](https://img.shields.io/badge/ClassicAPI-v1.15.15+-green.svg)](https://github.com/brues-code/ClassicAPI)
 [![SuperWoW: v2.2+](https://img.shields.io/badge/SuperWoW-v2.2+-brightgreen.svg)](https://github.com/balakethelock/SuperWoW)
 [![UnitXP: SP3](https://img.shields.io/badge/UnitXP-SP3-teal.svg)](https://codeberg.org/konaka/UnitXP_SP3)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**AutoLazy v3.7.0** is a dungeon automation and quality-of-life addon for **World of Warcraft 1.12.1 (Build 5875)** running on the **Enhanced Client Extension Stack** (**ClassicAPI v1.15.14+**, **SuperWoW v2.2+**, and **UnitXP SP3**).
+**AutoLazy v3.7.0** is a dungeon automation and quality-of-life addon for **World of Warcraft 1.12.1 (Build 5875)** running on the **Enhanced Client Extension Stack** (**ClassicAPI v1.15.15+**, **SuperWoW v2.2+**, and **UnitXP SP3**).
 
 It provides intelligent per-dungeon automated loot rolling, global BoP auto-confirmation, continuous Shift-hold repeatable quest chaining, a draggable floating hub with popup Addon Tray, and reversible client bloat suppression (including suppression of custom server pirate radio and group finder elements).
 
@@ -23,7 +23,7 @@ AutoLazy is engineered around strict low-level system integration:
 
 | Engine Component | Minimum Version | Architectural Role & Implementation |
 | :--- | :--- | :--- |
-| **ClassicAPI** | `v1.15.14+` | C++ hardware timers (`C_Timer.After`), modern structured quest information (`C_GossipInfo`), native `table.wipe` memory recycling, and source-rewritten Lua 5.1 syntax. |
+| **ClassicAPI** | `v1.15.15+` | C++ hardware timers (`C_Timer.After`), modern structured quest information (`C_GossipInfo`), native `table.wipe` memory recycling, and source-rewritten Lua 5.1 syntax. |
 | **SuperWoW** | `v2.2+` | Direct memory state access, OS-level window alerting, and packet-based event synchronization. |
 | **UnitXP** | `SP3` | High-precision unit state inspection and target validation. |
 
@@ -106,7 +106,7 @@ Use `/al` or `/autolazy` (or `/ar`):
 
 ### Prerequisites
 1. **World of Warcraft 1.12.1** (Build 5875).
-2. [**ClassicAPI v1.15.14+**](https://github.com/brues-code/ClassicAPI) (`ClassicAPI.dll`).
+2. [**ClassicAPI v1.15.15+**](https://github.com/brues-code/ClassicAPI) (`ClassicAPI.dll`).
 3. [**SuperWoW v2.2+**](https://github.com/balakethelock/SuperWoW) (`SuperWoW.dll`).
 4. [**UnitXP SP3**](https://codeberg.org/konaka/UnitXP_SP3) (`UnitXP_SP3.dll`).
 
