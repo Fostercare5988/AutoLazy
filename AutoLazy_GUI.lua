@@ -21,6 +21,7 @@ panel:SetMovable(true)
 panel:RegisterForDrag("LeftButton")
 panel:SetScript("OnDragStart", function() panel:StartMoving() end)
 panel:SetScript("OnDragStop", function() panel:StopMovingOrSizing() end)
+if panel.SetClampedToScreen then panel:SetClampedToScreen(true) end
 panel:Hide()
 
 -- Allow closing with ESC key

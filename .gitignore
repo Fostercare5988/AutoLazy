@@ -16,3 +16,5 @@ OCTOWOW_SYSTEM_PROMPT.md
 
 CLAUDE.md
 AGENTS.md
+__pycache__/
+*.pyc

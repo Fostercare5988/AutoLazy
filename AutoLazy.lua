@@ -387,6 +387,7 @@ function AutoLazy_GetItemRule(itemName)
         return nil
     end
     local lower = string_lower(itemName)
+    if BlacklistItems[lower] then return nil end
 
     -- Direct specific item name match
     if AutoLazyDB.ItemRules[lower] ~= nil then
@@ -418,6 +419,8 @@ function AutoLazy_GetItemRule(itemName)
 end
 
 local questSessionActive = false
+local currentQuestSessionToken = 0
+local activeNpcGUID = nil
 
 local function ShouldAutoQuest()
     if not AutoLazyDB or not AutoLazyDB.Quests or not AutoLazyDB.Quests.Enabled then return false end
@@ -796,10 +799,14 @@ trayTitle:SetText("|cFFFFD100Addons|r")
 
 function AutoLazy_CloseTray()
     if trayFrame:IsShown() then
-        for _, btn in ipairs(DiscoveredAddonList) do
-            if btn and btn.Hide then btn:Hide() end
+        if AutoLazyDB and AutoLazyDB.Tweaks and AutoLazyDB.Tweaks.CollapseAddons == false then
+            AutoLazy_CollapseAddons(false)
+        else
+            for _, btn in ipairs(DiscoveredAddonList) do
+                if btn and btn.Hide then btn:Hide() end
+            end
+            trayFrame:Hide()
         end
-        trayFrame:Hide()
     end
 end
 
@@ -895,6 +902,7 @@ actionBtn:SetMovable(true)
 actionBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 actionBtn:RegisterForDrag("LeftButton", "RightButton")
 actionBtn:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+if actionBtn.SetClampedToScreen then actionBtn:SetClampedToScreen(true) end
 
 local btnIcon = actionBtn:CreateTexture(nil, "BACKGROUND")
 btnIcon:SetTexture("Interface\\Icons\\INV_Misc_Bag_08")
@@ -1097,7 +1105,12 @@ local GossipTurnInKeywords = {
 local function GetPlayerItemCount(targetItem)
     if not targetItem or targetItem == "" then return 0 end
     if GetItemCount then
-        return GetItemCount(targetItem) or 0
+        local c = GetItemCount(targetItem)
+        if c and c > 0 then return c end
+    end
+    if C_Item and C_Item.GetItemCount then
+        local c = C_Item.GetItemCount(targetItem)
+        if c and c > 0 then return c end
     end
     local targetLower = string_lower(targetItem)
     local total = 0
@@ -1347,11 +1360,27 @@ local function DelayedStartupSync()
     if AutoLazy_CollapseAddons then AutoLazy_CollapseAddons() end
 end
 
-local function TryQuestChain()
+local function TryQuestChain(token)
+    if token and token ~= currentQuestSessionToken then return end
+    if not (GossipFrame and GossipFrame:IsShown()) and not (QuestFrameGreetingPanel and QuestFrameGreetingPanel:IsShown()) then
+        questSessionActive = false
+        activeNpcGUID = nil
+        return
+    end
+    local currentGuid = (UnitGUID and (UnitGUID("npc") or UnitGUID("target"))) or nil
+    if activeNpcGUID and currentGuid and currentGuid ~= activeNpcGUID then
+        questSessionActive = false
+        activeNpcGUID = nil
+        return
+    end
     if GossipFrame and GossipFrame:IsShown() then
-        ProcessGossip()
+        if not ProcessGossip() then
+            questSessionActive = false
+        end
     elseif QuestFrameGreetingPanel and QuestFrameGreetingPanel:IsShown() then
-        ProcessGreeting()
+        if not ProcessGreeting() then
+            questSessionActive = false
+        end
     else
         questSessionActive = false
     end
@@ -1367,6 +1396,7 @@ EventFrame:RegisterEvent("LOOT_BIND_CONFIRM")
 EventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 EventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 EventFrame:RegisterEvent("ZONE_CHANGED")
+EventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
 EventFrame:RegisterEvent("GOSSIP_SHOW")
 EventFrame:RegisterEvent("GOSSIP_CLOSED")
 EventFrame:RegisterEvent("QUEST_GREETING")
@@ -1455,8 +1485,18 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
             end
         end
 
+    elseif ev == "PLAYER_TARGET_CHANGED" then
+        local currentGuid = (UnitGUID and (UnitGUID("npc") or UnitGUID("target"))) or nil
+        if activeNpcGUID and currentGuid ~= activeNpcGUID then
+            questSessionActive = false
+            activeNpcGUID = nil
+            currentQuestSessionToken = currentQuestSessionToken + 1
+        end
+
     -- Continuous Shift+Click Quest Handlers
     elseif ev == "GOSSIP_SHOW" then
+        activeNpcGUID = (UnitGUID and (UnitGUID("npc") or UnitGUID("target"))) or nil
+        currentQuestSessionToken = currentQuestSessionToken + 1
         if AutoLazyDB and AutoLazyDB.Quests and AutoLazyDB.Quests.Enabled then
             if AutoLazyDB.Quests.AlwaysActive or IsShiftKeyDown() then
                 questSessionActive = true
@@ -1466,8 +1506,12 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
 
     elseif ev == "GOSSIP_CLOSED" then
         questSessionActive = false
+        activeNpcGUID = nil
+        currentQuestSessionToken = currentQuestSessionToken + 1
 
     elseif ev == "QUEST_GREETING" then
+        activeNpcGUID = (UnitGUID and (UnitGUID("npc") or UnitGUID("target"))) or nil
+        currentQuestSessionToken = currentQuestSessionToken + 1
         if AutoLazyDB and AutoLazyDB.Quests and AutoLazyDB.Quests.Enabled then
             if AutoLazyDB.Quests.AlwaysActive or IsShiftKeyDown() then
                 questSessionActive = true
@@ -1498,10 +1542,14 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
     elseif ev == "QUEST_FINISHED" then
         -- Fast chain-trigger for repeatable turn-ins (e.g. E'ko, Scourgestones, Bijous, Dark Iron Residue)
         if ShouldAutoQuest() then
-            C_Timer.After(0.05, TryQuestChain)
-            C_Timer.After(0.15, TryQuestChain)
+            local token = currentQuestSessionToken
+            C_Timer.After(0.08, function()
+                TryQuestChain(token)
+            end)
         else
             questSessionActive = false
+            activeNpcGUID = nil
+            currentQuestSessionToken = currentQuestSessionToken + 1
         end
     end
 end)
