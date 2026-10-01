@@ -814,6 +814,97 @@ class AutoLazyTests(unittest.TestCase):
         self.assertEqual(res, "ACTION")
         self.assertEqual(selected_id, [4802])
 
+    def test_audited_repeatable_turnin_requirements(self):
+        """Audited repeatable turn-ins match canonical 1.12 item counts and multi-item recipes."""
+        import collections
+        inventory = collections.defaultdict(int)
+        extra = """
+            C_Item = {
+                GetItemCount = function(id)
+                    return inv_counts[id] or 0
+                end
+            }
+        """
+        lua = create_autolazy_runtime(extra)
+        g = lua.globals()
+        g.inv_counts = inventory
+
+        # 1. Corruptor's Scourgestone: requires 1 (was wrongly 5)
+        inventory[12843] = 1
+        m_corr, r_corr = g.AutoLazy.MatchesRepeatableRequirement("Corruptor's Scourgestones")
+        self.assertTrue(m_corr)
+        self.assertEqual(r_corr.minCount, 1)
+
+        # 2. Dark Iron Scraps: requires 30 (item 22528)
+        inventory.clear()
+        inventory[22528] = 30
+        m_scraps, r_scraps = g.AutoLazy.MatchesRepeatableRequirement("Dark Iron Scraps")
+        self.assertTrue(m_scraps)
+        self.assertEqual(r_scraps.item, 22528)
+        self.assertEqual(r_scraps.minCount, 30)
+
+        # 3. Abyssal Scepter: requires 1 (was wrongly 3)
+        inventory.clear()
+        inventory[20515] = 1
+        m_scep, r_scep = g.AutoLazy.MatchesRepeatableRequirement("Abyssal Scepters")
+        self.assertTrue(m_scep)
+        self.assertEqual(r_scep.minCount, 1)
+
+        # 4. AV Ram Hide / Frostwolf Hide: requires 10 (was wrongly 20)
+        inventory.clear()
+        inventory[17643] = 10
+        m_hide, r_hide = g.AutoLazy.MatchesRepeatableRequirement("Alterac Ram Hide")
+        self.assertTrue(m_hide)
+        self.assertEqual(r_hide.minCount, 10)
+        inventory[17643] = 9
+        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement("Alterac Ram Hide"))
+
+        # 5. ZG 3-coin requirement: requires 1 Zulian (19698) + 1 Razzashi (19699) + 1 Hakkari (19700)
+        inventory.clear()
+        inventory[19698] = 2 # 2 Zulian coins, but 0 Razzashi / Hakkari -> must FAIL
+        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement("Zulian, Razzashi, and Hakkari Coins"))
+        inventory[19699] = 1
+        inventory[19700] = 1 # Now has 1 of each -> must SUCCEED
+        m_zg, _ = g.AutoLazy.MatchesRepeatableRequirement("Zulian, Razzashi, and Hakkari Coins")
+        self.assertTrue(m_zg)
+
+        # 6. Thorium Brotherhood Fiery Flux: Heavy Leather (10) + Incendosaur Scale (2) + Coal (1)
+        inventory.clear()
+        inventory[4234] = 10 # 10 Heavy leather alone -> must FAIL
+        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement("Restoring Fiery Flux Supplies via Heavy Leather"))
+        inventory[11371] = 2 # 2 scales
+        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement("Restoring Fiery Flux Supplies via Heavy Leather")) # missing coal
+        inventory[3857] = 1  # 1 coal -> all 3 satisfied -> must SUCCEED
+        m_flux, _ = g.AutoLazy.MatchesRepeatableRequirement("Restoring Fiery Flux Supplies via Heavy Leather")
+        self.assertTrue(m_flux)
+
+        # 7. Fiery Flux via Iron (4 iron bar + 2 scales + 1 coal)
+        inventory.clear()
+        inventory[3575] = 4
+        inventory[11371] = 2
+        inventory[3857] = 1
+        m_iron, _ = g.AutoLazy.MatchesRepeatableRequirement("Restoring Fiery Flux Supplies via Iron")
+        self.assertTrue(m_iron)
+
+        # 8. Fiery Flux via Kingsblood (4 kingsblood + 2 scales + 1 coal)
+        inventory.clear()
+        inventory[3356] = 4
+        inventory[11371] = 2
+        inventory[3857] = 1
+        m_kb, _ = g.AutoLazy.MatchesRepeatableRequirement("Restoring Fiery Flux Supplies via Kingsblood")
+        self.assertTrue(m_kb)
+
+        # 9. Purged fake quests must not match
+        inventory.clear()
+        inventory[12739] = 30 # Dalson Cabinet Key
+        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement("Somber Hourglass"))
+        inventory.clear()
+        inventory[5466] = 1 # Scorpid Stinger
+        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement("Water Elemental Core"))
+        inventory.clear()
+        inventory[20520] = 1 # Dark Rune
+        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement("Dark Rune"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -145,7 +145,7 @@ local FarmItemLookup = {
     ["crypt fiend parts"]         = "Argent Dawn",
     ["core of elements"]          = "Argent Dawn",
     ["savage frond"]              = "Argent Dawn",
-    ["somber hourglass"]          = "Argent Dawn",
+    ["dark iron scraps"]          = "Argent Dawn",
     ["healthy dragon scale"]      = "Argent Dawn",
     ["fiery core"]                = "Molten Core",
     ["lava core"]                 = "Molten Core",
@@ -163,7 +163,6 @@ local FarmItemLookup = {
     -- Timbermaw Hold
     ["deadwood headdress feather"]= "Timbermaw",
     ["winterfall spirit beads"]   = "Timbermaw",
-    ["water elemental core"]      = "Timbermaw",
 
     -- Winterspring E'ko
     ["winterfall e'ko"]           = "Winterspring E'ko",
@@ -1074,23 +1073,17 @@ AutoLazy.InitLootChatPatterns = InitLootChatPatterns
 -- Zul'Gurub Bijou itemIDs (19707 to 19715)
 local ZG_BIJOUS = { 19707, 19708, 19709, 19710, 19711, 19712, 19713, 19714, 19715 }
 
--- Zul'Gurub Coin sets
-local ZG_COINS_ZULIAN    = { 19698, 19699, 19700 } -- Zulian, Razzashi, Hakkari
-local ZG_COINS_SANDFURY  = { 19701, 19702, 19703 } -- Sandfury, Skullsplitter, Bloodscalp
-local ZG_COINS_GURUBASHI = { 19704, 19705, 19706 } -- Gurubashi, Vilebranch, Witherbark
-
 local RepeatableTurnIns = {
     -- Argent Dawn (Scourgestones, Materials, Writs)
     { quest = "minion",            item = 12840, minCount = 20 }, -- Minion's Scourgestone
     { quest = "invader",           item = 12841, minCount = 10 }, -- Invader's Scourgestone
-    { quest = "corruptor",         item = 12843, minCount = 5 },  -- Corruptor's Scourgestone
+    { quest = "corruptor",         item = 12843, minCount = 1 },  -- Corruptor's Scourgestone
     { quest = "dragon scale",      item = 13920, minCount = 1 },  -- Healthy Dragon Scale
     { quest = "bone fragments",    item = 22526, minCount = 30 }, -- Bone Fragments
     { quest = "crypt fiend parts", item = 22525, minCount = 30 }, -- Crypt Fiend Parts
     { quest = "core of elements",  item = 22527, minCount = 30 }, -- Core of Elements
     { quest = "savage frond",      item = 22529, minCount = 30 }, -- Savage Frond
-    { quest = "somber hourglass",  item = 12739, minCount = 30 }, -- Somber Hourglass
-    { quest = "dark rune",         item = 20520, minCount = 1 },  -- Dark Rune
+    { quest = "dark iron scraps",  item = 22528, minCount = 30 }, -- Dark Iron Scraps
     { quest = "craftsman",         item = "craftsman's writ", minCount = 1 },
 
     -- Winterspring E'ko (Witch Doctor Mau'ari)
@@ -1105,10 +1098,30 @@ local RepeatableTurnIns = {
     -- Thorium Brotherhood
     { quest = "dark iron residue",                      item = 18945, minCount = 4 },
     { quest = "dark iron ore",                          item = 11370, minCount = 10 },
-    { quest = "restoring fiery flux via heavy leather", item = 4234,  minCount = 2 },
-    { quest = "restoring fiery flux via iron",          item = 3575,  minCount = 4 },
-    { quest = "restoring fiery flux via coal",          item = 3857,  minCount = 1 },
-    { quest = "restoring fiery flux via incendosaur scale", item = 11371, minCount = 2 },
+    {
+        quest = "via heavy leather",
+        requires = {
+            { item = 4234,  count = 10 }, -- Heavy Leather
+            { item = 11371, count = 2 },  -- Incendosaur Scale
+            { item = 3857,  count = 1 },  -- Coal
+        },
+    },
+    {
+        quest = "via iron",
+        requires = {
+            { item = 3575,  count = 4 },  -- Iron Bar
+            { item = 11371, count = 2 },  -- Incendosaur Scale
+            { item = 3857,  count = 1 },  -- Coal
+        },
+    },
+    {
+        quest = "via kingsblood",
+        requires = {
+            { item = 3356,  count = 4 },  -- Kingsblood
+            { item = 11371, count = 2 },  -- Incendosaur Scale
+            { item = 3857,  count = 1 },  -- Coal
+        },
+    },
     { quest = "fiery core",                             item = 17010, minCount = 1 },
     { quest = "lava core",                              item = 17011, minCount = 1 },
     { quest = "blood of the mountain",                  item = 11382, minCount = 1 },
@@ -1119,18 +1132,38 @@ local RepeatableTurnIns = {
     { quest = "secret communication",     item = 20404, minCount = 10 },
     { quest = "abyssal crest",           item = 20513, minCount = 3 },
     { quest = "abyssal signet",          item = 20514, minCount = 3 },
-    { quest = "abyssal scepter",         item = 20515, minCount = 3 },
+    { quest = "abyssal scepter",         item = 20515, minCount = 1 },
 
     -- Timbermaw Hold
     { quest = "deadwood headdress feather", item = 21377, minCount = 5 },
     { quest = "winterfall spirit bead",     item = 21383, minCount = 5 },
-    { quest = "water elemental core",       item = 5466,  minCount = 1 },
 
-    -- Zandalar Tribe / Zul'Gurub
-    { quest = "zulian",        item = ZG_COINS_ZULIAN,    minCount = 1 },
-    { quest = "sandfury",      item = ZG_COINS_SANDFURY,  minCount = 1 },
-    { quest = "gurubashi",     item = ZG_COINS_GURUBASHI, minCount = 1 },
-    { quest = "hakkari bijou", item = ZG_BIJOUS,          minCount = 1 },
+    -- Zandalar Tribe / Zul'Gurub (Yojamba Isle)
+    {
+        quest = "zulian",
+        requires = {
+            { item = 19698, count = 1 }, -- Zulian Coin
+            { item = 19699, count = 1 }, -- Razzashi Coin
+            { item = 19700, count = 1 }, -- Hakkari Coin
+        },
+    },
+    {
+        quest = "sandfury",
+        requires = {
+            { item = 19701, count = 1 }, -- Sandfury Coin
+            { item = 19702, count = 1 }, -- Skullsplitter Coin
+            { item = 19703, count = 1 }, -- Bloodscalp Coin
+        },
+    },
+    {
+        quest = "gurubashi",
+        requires = {
+            { item = 19704, count = 1 }, -- Gurubashi Coin
+            { item = 19705, count = 1 }, -- Vilebranch Coin
+            { item = 19706, count = 1 }, -- Witherbark Coin
+        },
+    },
+    { quest = "hakkari bijou", item = ZG_BIJOUS, minCount = 1 },
 
     -- Un'Goro Crater
     { quest = "morrowgrain", item = 11040, minCount = 10 },
@@ -1141,11 +1174,11 @@ local RepeatableTurnIns = {
 
     -- Alterac Valley
     { quest = "armor scrap",         item = 17422, minCount = 20 },
-    { quest = "soldier's blood",     item = 17306, minCount = 5 },
-    { quest = "soldiers blood",      item = 17306, minCount = 5 },
+    { quest = "soldier's blood",     item = 17306, minCount = 1 },
+    { quest = "soldiers blood",      item = 17306, minCount = 1 },
     { quest = "lieutenant's flesh",  item = 17423, minCount = 1 },
-    { quest = "ram hide",            item = 17643, minCount = 20 },
-    { quest = "frostwolf hide",      item = 17642, minCount = 20 },
+    { quest = "ram hide",            item = 17643, minCount = 10 },
+    { quest = "frostwolf hide",      item = 17642, minCount = 10 },
     { quest = "irondeep supplies",   item = 17424, minCount = 10 },
     { quest = "coldtooth supplies",  item = 17425, minCount = 10 },
 
@@ -1193,8 +1226,8 @@ local GossipTurnInKeywords = {
 
     -- Alterac Valley
     { match = "armor scrap",        item = 17422, minCount = 20 },
-    { match = "soldier's blood",    item = 17306, minCount = 5 },
-    { match = "soldiers blood",     item = 17306, minCount = 5 },
+    { match = "soldier's blood",    item = 17306, minCount = 1 },
+    { match = "soldiers blood",     item = 17306, minCount = 1 },
     { match = "lieutenant's flesh", item = 17423, minCount = 1 },
 
     -- Submenu Openers
