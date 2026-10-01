@@ -905,6 +905,58 @@ class AutoLazyTests(unittest.TestCase):
         inventory[20520] = 1 # Dark Rune
         self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement("Dark Rune"))
 
+    def test_corrupted_sand_1x_and_10x_turnin_priority(self):
+        """Corrupted Sand supports 10x bulk (40341) and 1x single (40340), prioritizing 10x when count >= 10."""
+        import collections
+        inventory = collections.defaultdict(int)
+        extra = """
+            C_Item = {
+                GetItemCount = function(id)
+                    return inv_counts[id] or 0
+                end
+            }
+        """
+        lua = create_autolazy_runtime(extra)
+        g = lua.globals()
+        g.inv_counts = inventory
+
+        selected_id = []
+        g.C_GossipInfo.SelectAvailableQuest = lambda qid: selected_id.append(qid)
+        # Dronormu offers single turn-in first in list, bulk second
+        g.C_GossipInfo.GetAvailableQuests = lambda: lua.table_from([
+            lua.table_from({"questID": 40340, "title": "Corrupted Sand"}),
+            lua.table_from({"questID": 40341, "title": "Sand in Bulk"}),
+        ])
+        g.AutoLazy.SetQuestSessionActive(True)
+
+        # Case 1: Player has 15 Corrupted Sand (50203) -> must prioritize 10x bulk (40341)
+        inventory[50203] = 15
+        selected_id.clear()
+        res = g.AutoLazy.ProcessGossip()
+        self.assertEqual(res, "ACTION")
+        self.assertEqual(selected_id, [40341])
+
+        # Case 2: Player has 5 Corrupted Sand -> cannot do bulk, must select 1x (40340)
+        inventory[50203] = 5
+        selected_id.clear()
+        res = g.AutoLazy.ProcessGossip()
+        self.assertEqual(res, "ACTION")
+        self.assertEqual(selected_id, [40340])
+
+        # Case 3: Player has 0 Corrupted Sand -> cannot turn in either, pauses safely
+        inventory[50203] = 0
+        selected_id.clear()
+        res = g.AutoLazy.ProcessGossip()
+        self.assertEqual(res, "WAITING")
+        self.assertEqual(selected_id, [])
+
+        # Case 4: Direct gossip text matching
+        inventory[50203] = 10
+        self.assertTrue(g.AutoLazy.MatchesGossipTurnIn("Sand in Bulk"))
+        inventory[50203] = 1
+        self.assertFalse(g.AutoLazy.MatchesGossipTurnIn("Sand in Bulk"))
+        self.assertTrue(g.AutoLazy.MatchesGossipTurnIn("Purify Corrupted Sand"))
+
 
 if __name__ == "__main__":
     unittest.main()

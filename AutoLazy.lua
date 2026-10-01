@@ -1183,22 +1183,35 @@ local RepeatableTurnIns = {
     { quest = "coldtooth supplies",  item = 17425, minCount = 10 },
 
     -- Custom / World (OctoWoW)
-    -- Quest 40739: "The Tel'Abim Banana Transmutation"
+    -- Caverns of Time (Dronormu - Corrupted Sand: 10x bulk prioritized over 1x)
     {
-        questID = 40739,
-        questTitle = "the tel'abim banana transmutation",
-        requires = {
-            { item = 60954, count = 3 },
-            { item = 11176, count = 1 },
-        },
+        questID = 40341,
+        quest = "sand in bulk",
+        item = 50203,
+        minCount = 10,
     },
-    -- Quest 40740: "Tel'Abim Banana Transmutations!"
+    {
+        questID = 40340,
+        quest = "corrupted sand",
+        item = 50203,
+        minCount = 1,
+    },
+    -- Quest 40740: "Tel'Abim Banana Transmutations!" (15x bulk prioritized over 3x)
     {
         questID = 40740,
         questTitle = "tel'abim banana transmutations!",
         requires = {
             { item = 60954, count = 15 },
             { item = 11176, count = 5 },
+        },
+    },
+    -- Quest 40739: "The Tel'Abim Banana Transmutation" (3x)
+    {
+        questID = 40739,
+        questTitle = "the tel'abim banana transmutation",
+        requires = {
+            { item = 60954, count = 3 },
+            { item = 11176, count = 1 },
         },
     },
 }
@@ -1211,6 +1224,10 @@ local GossipTurnInKeywords = {
     { match = "fiery core",            item = 17010, minCount = 1 },
     { match = "lava core",             item = 17011, minCount = 1 },
     { match = "core leather",          item = 17012, minCount = 2 },
+
+    -- Caverns of Time (Dronormu - Corrupted Sand)
+    { match = "sand in bulk",          item = 50203, minCount = 10 },
+    { match = "corrupted sand",        item = 50203, minCount = 1 },
 
     -- Altar of Zanza (ZG Bijou destruction)
     { match = "red hakkari bijou",    item = 19707, minCount = 1 },
@@ -1271,23 +1288,17 @@ local function MatchesRepeatableRequirement(title, questID)
     local normTitle = NormalizeTitle(title)
     for _, rep in ipairs(RepeatableTurnIns) do
         local matched = false
-        if questID then
-            if rep.questID and rep.questID == questID then
+        if questID and rep.questID then
+            if rep.questID == questID then
                 matched = true
-            elseif not rep.questID and rep.quest and normTitle then
-                if string.find(normTitle, rep.quest, 1, true) then
-                    matched = true
-                end
             end
-        else
-            if rep.questTitle and normTitle then
-                if rep.questTitle == normTitle then
-                    matched = true
-                end
-            elseif not rep.questID and rep.quest and normTitle then
-                if string.find(normTitle, rep.quest, 1, true) then
-                    matched = true
-                end
+        elseif rep.questTitle and normTitle then
+            if rep.questTitle == normTitle then
+                matched = true
+            end
+        elseif rep.quest and normTitle then
+            if string.find(normTitle, rep.quest, 1, true) then
+                matched = true
             end
         end
 
@@ -1350,12 +1361,17 @@ local function ProcessGossip()
                 end
             end
 
-            -- Priority 1: Repeatable turn-ins matching player inventory in bags
-            for i = 1, #completed do
-                local q = completed[i]
-                if q.title and MatchesRepeatableRequirement(q.title, q.questID) then
-                    C_GossipInfo.SelectActiveQuest(q.questID)
-                    return "ACTION"
+            -- Priority 1: Repeatable turn-ins matching player inventory in bags (in RepeatableTurnIns priority order)
+            for _, rep in ipairs(RepeatableTurnIns) do
+                for i = 1, #completed do
+                    local q = completed[i]
+                    if q.title then
+                        local matched, matchedRep = MatchesRepeatableRequirement(q.title, q.questID)
+                        if matched and matchedRep == rep then
+                            C_GossipInfo.SelectActiveQuest(q.questID)
+                            return "ACTION"
+                        end
+                    end
                 end
             end
 
@@ -1390,12 +1406,17 @@ local function ProcessGossip()
     if AutoLazyDB.Quests.AutoAccept then
         local avail = C_GossipInfo.GetAvailableQuests()
         if avail and #avail > 0 then
-            -- Priority 1: Repeatable turn-ins matching player inventory in bags
-            for i = 1, #avail do
-                local q = avail[i]
-                if q and q.questID and q.title and MatchesRepeatableRequirement(q.title, q.questID) then
-                    C_GossipInfo.SelectAvailableQuest(q.questID)
-                    return "ACTION"
+            -- Priority 1: Repeatable turn-ins matching player inventory in bags (in RepeatableTurnIns priority order)
+            for _, rep in ipairs(RepeatableTurnIns) do
+                for i = 1, #avail do
+                    local q = avail[i]
+                    if q and q.questID and q.title then
+                        local matched, matchedRep = MatchesRepeatableRequirement(q.title, q.questID)
+                        if matched and matchedRep == rep then
+                            C_GossipInfo.SelectAvailableQuest(q.questID)
+                            return "ACTION"
+                        end
+                    end
                 end
             end
 
@@ -1430,11 +1451,17 @@ local function ProcessGreeting()
                 end
             end
 
-            -- Priority 1: Repeatable turn-ins matching player inventory in bags
-            for i = 1, #completed do
-                if completed[i].title and MatchesRepeatableRequirement(completed[i].title) then
-                    SelectActiveQuest(completed[i].index)
-                    return "ACTION"
+            -- Priority 1: Repeatable turn-ins matching player inventory in bags (in RepeatableTurnIns priority order)
+            for _, rep in ipairs(RepeatableTurnIns) do
+                for i = 1, #completed do
+                    local title = completed[i].title
+                    if title then
+                        local matched, matchedRep = MatchesRepeatableRequirement(title)
+                        if matched and matchedRep == rep then
+                            SelectActiveQuest(completed[i].index)
+                            return "ACTION"
+                        end
+                    end
                 end
             end
 
@@ -1451,13 +1478,18 @@ local function ProcessGreeting()
     if AutoLazyDB.Quests.AutoAccept and GetNumAvailableQuests and SelectAvailableQuest then
         local numAvail = GetNumAvailableQuests()
         if numAvail and numAvail > 0 then
-            -- Priority 1: Repeatable matching bag inventory
+            -- Priority 1: Repeatable matching bag inventory (in RepeatableTurnIns priority order)
             if GetAvailableTitle then
-                for i = 1, numAvail do
-                    local title = GetAvailableTitle(i)
-                    if title and MatchesRepeatableRequirement(title) then
-                        SelectAvailableQuest(i)
-                        return "ACTION"
+                for _, rep in ipairs(RepeatableTurnIns) do
+                    for i = 1, numAvail do
+                        local title = GetAvailableTitle(i)
+                        if title then
+                            local matched, matchedRep = MatchesRepeatableRequirement(title)
+                            if matched and matchedRep == rep then
+                                SelectAvailableQuest(i)
+                                return "ACTION"
+                            end
+                        end
                     end
                 end
             end
