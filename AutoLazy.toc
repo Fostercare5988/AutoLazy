@@ -1,7 +1,7 @@
 ## Interface: 11200
 ## X-ClassicAPI-Min-Version: 1.15.15
 ## Title: AutoLazy
-## Notes: High-performance dungeon loot automation, continuous repeatable quest turn-ins, Floating Addon Tray, and Reversible System Bloat Suppression (ClassicAPI v1.15.15+, SuperWoW 2.2+, UnitXP SP3).
+## Notes: High-performance dungeon loot automation, continuous repeatable quest turn-ins, Floating Addon Tray, and Reversible System Bloat Suppression (ClassicAPI v1.15.15+).
 ## Author: Fostercare5988
 ## Version: 3.7.0
 ## SavedVariables: AutoLazyDB

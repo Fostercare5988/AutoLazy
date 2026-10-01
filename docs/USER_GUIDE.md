@@ -31,6 +31,7 @@ Configure automated rolling in `/al` > **Loot & Dungeons**:
   - **Naxxramas**: Wartorn Cloth, Leather, Chain, and Plate Scraps.
   - **The Black Morass**: Corrupted Sand.
 - **Global Toggle**: Check **Auto-roll listed items** to enable or pause automation. Unlisted items (gear, weapons, boes) are never rolled automatically by AutoLazy.
+- **Clean Group Loot Presentation**: Toggleable via `/al clean` or the **Clean Roll Chat** checkbox in Tab 2 (enabled by default). Suppresses intermediate Need/Greed/Pass notifications, roll numbers, and all-pass clutter during group loot rolls, presenting only a single final winner line with a clickable item link. Non-roll loot (corpse looting, direct item acquisition, and money) remains fully visible.
 - **BoP Auto-Confirmation**: Toggle **Auto-confirm BoP** to confirm Bind-on-Pickup popups during loot rolls and corpse looting.
 
 ---
@@ -41,6 +42,7 @@ Turn in stacks of repeatable reputation and token quests without clicking throug
 
 ### Usage
 - **Shift-Click Chaining (Default)**: Hold the **Shift** key when talking to a quest NPC to continuously turn in all repeatable quests in one uninterrupted sequence.
+- **Multi-Quest NPCs**: When an NPC offers multiple quests, AutoLazy keeps the list visible so you can select the quest you want. Once clicked, accept and turn-in automation proceeds seamlessly while the Shift automation session remains active. AutoLazy never blindly chooses quest #1.
 - **Always Active Mode**: Toggle `/al always` or enable the setting in `/al` to automate quest dialogue without needing to hold Shift.
 
 ### Supported Reputation Quests

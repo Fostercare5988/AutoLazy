@@ -1,12 +1,11 @@
 -- AutoLazy Options GUI for WoW 1.12.1 (Vanilla Enhanced)
 -- Author & Maintainer: Fostercare5988
--- Built natively for ClassicAPI v1.15.15+, SuperWoW 2.2+, UnitXP SP3
+-- Built natively for ClassicAPI v1.15.15+
 
--- Strict Engine Dependency Guard (Mandatory ClassicAPI v1.15.15+ & SuperWoW v2.2+)
+-- Strict Engine Dependency Guard (Mandatory ClassicAPI v1.15.15+)
 local MIN_CLASSIC_API = 11515
 
-if type(CLASSIC_API_VERSION) ~= "number" or not SUPERWOW_VERSION or
-   CLASSIC_API_VERSION < MIN_CLASSIC_API then
+if type(CLASSIC_API_VERSION) ~= "number" or CLASSIC_API_VERSION < MIN_CLASSIC_API then
     return
 end
 
@@ -233,30 +232,30 @@ tweakTip:SetText("|cFF888888AutoLazy Button Controls:\n  • |cFFFFD100Left-Clic
 --------------------------------------------------
 -- TAB 2: LOOT & DUNGEONS
 --------------------------------------------------
-local cbMaster = CreateCheckbox("AutoLazy_MasterEnable", "|cFF00FF00Auto-roll listed items|r", "Apply the chosen roll action to listed items in supported dungeons. Other items are never rolled automatically.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 25, -104, function(btn)
+local cbMaster = CreateCheckbox("AutoLazy_MasterEnable", "|cFF00FF00Auto-roll listed items|r", "Apply the chosen roll action to listed items in supported dungeons. Other items are never rolled automatically.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 25, -96, function(btn)
     if AutoLazyDB then
         AutoLazyDB.Enabled = (btn:GetChecked() == 1 or btn:GetChecked() == true)
     end
 end)
 generalWidgets["Enabled"] = cbMaster
 
-local cbBop = CreateCheckbox("AutoLazy_OptBop", "Auto-Confirm BoP", "While auto-roll is enabled, automatically confirm bind-on-pickup dialogs for rolls and direct loot.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 260, -104, function(btn)
+local cbBop = CreateCheckbox("AutoLazy_OptBop", "Auto-Confirm BoP", "While auto-roll is enabled, automatically confirm bind-on-pickup dialogs for rolls and direct loot.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 250, -96, function(btn)
     if AutoLazyDB then
         AutoLazyDB.AutoConfirmBop = (btn:GetChecked() == 1 or btn:GetChecked() == true)
     end
 end)
 generalWidgets["AutoConfirmBop"] = cbBop
 
-local cbChat = CreateCheckbox("AutoLazy_OptChat", "Chat Roll Alerts", "Prints a message in chat when AutoLazy rolls on an item.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 25, -130, function(btn)
+local cbCleanRoll = CreateCheckbox("AutoLazy_OptCleanRollChat", "|cFF00FF00Clean Roll Chat|r", "Hides intermediate Need, Greed, Pass and roll chatter, showing only the final winning player.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 25, -120, function(btn)
     if AutoLazyDB then
-        AutoLazyDB.AnnounceChat = (btn:GetChecked() == 1 or btn:GetChecked() == true)
+        AutoLazyDB.CleanRollChat = (btn:GetChecked() == 1 or btn:GetChecked() == true)
     end
 end)
-generalWidgets["AnnounceChat"] = cbChat
+generalWidgets["CleanRollChat"] = cbCleanRoll
 
 -- Left Column: Dungeons List
 local lblDungeons = tabLoot:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-lblDungeons:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 25, -158)
+lblDungeons:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 25, -148)
 lblDungeons:SetText("|cFFFFD100Dungeons|r")
 
 local dungeonOrder = {
@@ -273,7 +272,7 @@ for i, dKey in ipairs(dungeonOrder) do
     local btn = CreateFrame("Button", "AutoLazy_DungeonBtn_" .. i, tabLoot, "UIPanelButtonTemplate")
     btn:SetWidth(140)
     btn:SetHeight(24)
-    btn:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 25, -178 - (i - 1) * 28)
+    btn:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 25, -168 - (i - 1) * 28)
     btn:SetText(dKey)
     btn.dungeonKey = dKey
     btn:SetScript("OnClick", function(self)
@@ -285,18 +284,18 @@ for i, dKey in ipairs(dungeonOrder) do
 end
 
 local lblZone = tabLoot:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-lblZone:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 25, -300)
-lblZone:SetPoint("RIGHT", tabLoot, "TOPLEFT", 165, -300)
+lblZone:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 25, -286)
+lblZone:SetPoint("RIGHT", tabLoot, "TOPLEFT", 165, -286)
 lblZone:SetJustifyH("LEFT")
 lblZone:SetText("Zone: Detecting...")
 
 -- Right Column: Selected Dungeon and one explicit roll action per listed item.
 local lblSelectedTitle = tabLoot:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-lblSelectedTitle:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 180, -158)
+lblSelectedTitle:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 180, -148)
 lblSelectedTitle:SetText("The Black Morass")
 
 local lblRollHelp = tabLoot:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-lblRollHelp:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 180, -184)
+lblRollHelp:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 180, -172)
 lblRollHelp:SetText("Choose one action per item. Manual leaves the roll open.")
 
 local rollActions = { "MANUAL", "NEED", "GREED", "PASS" }
@@ -308,7 +307,7 @@ for i = 1, 4 do
     local row = CreateFrame("Frame", "AutoLazy_ItemRow_" .. i, tabLoot)
     row:SetWidth(295)
     row:SetHeight(48)
-    row:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 180, -213 - (i - 1) * 53)
+    row:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 180, -196 - (i - 1) * 53)
 
     local iconBtn = CreateFrame("Button", "AutoLazy_ItemIcon_" .. i, row)
     iconBtn:SetWidth(28)
@@ -369,22 +368,6 @@ for i = 1, 4 do
     itemRows[i] = row
 end
 
-local btnResetDefaults = CreateFrame("Button", "AutoLazy_BtnResetDefaults", tabLoot, "UIPanelButtonTemplate")
-btnResetDefaults:SetWidth(140)
-btnResetDefaults:SetHeight(20)
-btnResetDefaults:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 330, -436)
-btnResetDefaults:SetText("Reset This Dungeon")
-btnResetDefaults:SetScript("OnClick", function()
-    local items = AutoLazy_DungeonItems and AutoLazy_DungeonItems[selectedDungeonKey]
-    if items and AutoLazyDB and AutoLazyDB.ItemRules then
-        for _, itm in ipairs(items) do
-            local ruleKey = itm.key or string.lower(itm.name)
-            AutoLazyDB.ItemRules[ruleKey] = itm.defaultNeed and "NEED" or "MANUAL"
-        end
-        AutoLazy_UpdateGUI()
-    end
-end)
-
 --------------------------------------------------
 -- TAB 3: QUEST AUTOMATION
 --------------------------------------------------
@@ -394,23 +377,23 @@ secQuestTitle:SetText("|cFFFFD100Quest Automation|r")
 
 local secQuestDesc = tabQuests:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 secQuestDesc:SetPoint("TOPLEFT", tabQuests, "TOPLEFT", 36, -124)
-secQuestDesc:SetText("Hold |cFFFFD100Shift|r while talking to an NPC to instantly accept and turn in quests.")
+secQuestDesc:SetText("Hold |cFFFFD100Shift|r while talking to an NPC to automate quest interaction.\nOn multi-quest NPCs, choose your quest and AutoLazy handles the rest.")
 
-local cbQuestMaster = CreateCheckbox("AutoLazy_QuestMaster", "|cFF00FF00Enable Shift + Click Quest Automation|r", "Hold Shift while right-clicking an NPC for instant turn-in and accepting.", tabQuests, "TOPLEFT", tabQuests, "TOPLEFT", 36, -154, function(btn)
+local cbQuestMaster = CreateCheckbox("AutoLazy_QuestMaster", "|cFF00FF00Enable Shift + Click Quest Automation|r", "Hold Shift while talking to an NPC for instant turn-in and accepting. On multi-quest NPCs, select your quest to automate it.", tabQuests, "TOPLEFT", tabQuests, "TOPLEFT", 36, -154, function(btn)
     if AutoLazyDB and AutoLazyDB.Quests then
         AutoLazyDB.Quests.Enabled = (btn:GetChecked() == 1 or btn:GetChecked() == true)
     end
 end)
 questWidgets["Enabled"] = cbQuestMaster
 
-local cbQuestTurnIn = CreateCheckbox("AutoLazy_QuestTurnIn", "Auto-Turn In Completed Quests", "Automatically turn in and finish completed quests.", tabQuests, "TOPLEFT", tabQuests, "TOPLEFT", 36, -184, function(btn)
+local cbQuestTurnIn = CreateCheckbox("AutoLazy_QuestTurnIn", "Auto-Turn In Completed Quests", "Automatically turn in completed quests. If multiple completed quests exist, choose the desired quest.", tabQuests, "TOPLEFT", tabQuests, "TOPLEFT", 36, -184, function(btn)
     if AutoLazyDB and AutoLazyDB.Quests then
         AutoLazyDB.Quests.AutoTurnIn = (btn:GetChecked() == 1 or btn:GetChecked() == true)
     end
 end)
 questWidgets["AutoTurnIn"] = cbQuestTurnIn
 
-local cbQuestAccept = CreateCheckbox("AutoLazy_QuestAccept", "Auto-Accept Available Quests", "Automatically accept newly offered quests.", tabQuests, "TOPLEFT", tabQuests, "TOPLEFT", 36, -214, function(btn)
+local cbQuestAccept = CreateCheckbox("AutoLazy_QuestAccept", "Auto-Accept Available Quests", "Automatically accept single quests or the quest you choose from a list.", tabQuests, "TOPLEFT", tabQuests, "TOPLEFT", 36, -214, function(btn)
     if AutoLazyDB and AutoLazyDB.Quests then
         AutoLazyDB.Quests.AutoAccept = (btn:GetChecked() == 1 or btn:GetChecked() == true)
     end
@@ -478,13 +461,9 @@ function AutoLazy_UpdateGUI()
             generalWidgets["AutoConfirmBop"]:Disable()
         end
     end
-    if generalWidgets["AnnounceChat"] then
-        generalWidgets["AnnounceChat"]:SetChecked(AutoLazyDB.AnnounceChat == true)
-        if AutoLazyDB.Enabled then
-            generalWidgets["AnnounceChat"]:Enable()
-        else
-            generalWidgets["AnnounceChat"]:Disable()
-        end
+
+    if generalWidgets["CleanRollChat"] then
+        generalWidgets["CleanRollChat"]:SetChecked(AutoLazyDB.CleanRollChat == true)
     end
 
     -- Tab 2 Master-Detail Dungeon and Items Synchronization

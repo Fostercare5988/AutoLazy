@@ -1,17 +1,16 @@
 --[[
     AutoLazy v3.7.0
     Author & Maintainer: Fostercare5988
-    Target: World of Warcraft 1.12.1 (Vanilla Enhanced Stack: ClassicAPI v1.15.15+, SuperWoW 2.2+, UnitXP SP3)
+    Target: World of Warcraft 1.12.1 (Vanilla Enhanced Stack: ClassicAPI v1.15.15+)
     Description: High-performance dungeon loot automation, continuous repeatable quest turn-ins, Floating Addon Tray, and Reversible System Bloat Suppression.
 ]]
 
--- Strict Engine Dependency Guard (Mandatory ClassicAPI v1.15.15+ & SuperWoW v2.2+)
+-- Strict Engine Dependency Guard (Mandatory ClassicAPI v1.15.15+)
 local MIN_CLASSIC_API = 11515
 
-if type(CLASSIC_API_VERSION) ~= "number" or not SUPERWOW_VERSION or
-   CLASSIC_API_VERSION < MIN_CLASSIC_API then
+if type(CLASSIC_API_VERSION) ~= "number" or CLASSIC_API_VERSION < MIN_CLASSIC_API then
     if DEFAULT_CHAT_FRAME then
-        DEFAULT_CHAT_FRAME:AddMessage("|cffff2020[AutoLazy Fatal Error]|r AutoLazy requires ClassicAPI (v1.15.15+) & SuperWoW (v2.2+)! Please ensure both DLLs are loaded.", 1, 0.2, 0.2)
+        DEFAULT_CHAT_FRAME:AddMessage("|cffff2020[AutoLazy Fatal Error]|r AutoLazy requires ClassicAPI (v1.15.15+)! Please ensure ClassicAPI.dll is loaded.", 1, 0.2, 0.2)
     end
     return
 end
@@ -86,7 +85,7 @@ AutoLazy.DungeonItems = DungeonItems
 AutoLazy_DungeonDefinitions = DungeonDefinitions
 AutoLazy_DungeonItems = DungeonItems
 
--- $O(1)$ Hash Table of recognized Farm Items (Normalized lowercase -> Category Tag)
+-- Hash Table of recognized Farm Items (Normalized lowercase -> Category Tag)
 local FarmItemLookup = {
     -- The Black Morass
     ["corrupted sand"]            = "Corrupted Sand",
@@ -194,10 +193,9 @@ local FarmItemLookup = {
 
     -- Custom / World Turn-ins
     ["tel'abim banana"]           = "Tel'Abim",
-    ["bloodfang tail"]            = "Bloodfang",
 }
 
--- $O(1)$ Hash Table of Explicitly Blacklisted Items
+-- Hash Table of Explicitly Blacklisted Items
 local BlacklistItems = {
     ["fashion coin"]              = true,
     ["idol of the moon"]          = true,
@@ -212,7 +210,7 @@ local ItemEvaluationCache = {}
 local defaultDB = {
     Enabled = true,
     AutoConfirmBop = true,
-    AnnounceChat = true,
+    CleanRollChat = true,
     SelectedTab = 1,
     ShowButton = true,
     ButtonPos = { x = nil, y = nil },
@@ -258,12 +256,14 @@ local function InitDB()
 
     if AutoLazyDB.Enabled == nil then AutoLazyDB.Enabled = defaultDB.Enabled end
     if AutoLazyDB.AutoConfirmBop == nil then AutoLazyDB.AutoConfirmBop = defaultDB.AutoConfirmBop end
-    if AutoLazyDB.AnnounceChat == nil then AutoLazyDB.AnnounceChat = defaultDB.AnnounceChat end
+    if AutoLazyDB.CleanRollChat == nil then AutoLazyDB.CleanRollChat = defaultDB.CleanRollChat end
     if AutoLazyDB.SelectedTab == nil then AutoLazyDB.SelectedTab = defaultDB.SelectedTab end
     if AutoLazyDB.ShowButton == nil then AutoLazyDB.ShowButton = defaultDB.ShowButton end
     if not AutoLazyDB.ButtonPos then AutoLazyDB.ButtonPos = {} end
 
-    -- Keep the saved rule set identical to the items shown in the loot UI.
+    -- Purge obsolete config keys
+    AutoLazyDB.AnnounceChat = nil
+    AutoLazyDB.CleanLoot = nil
     AutoLazyDB.FarmOnly = nil
 
     if not AutoLazyDB.Tweaks then AutoLazyDB.Tweaks = {} end
@@ -426,7 +426,7 @@ local function ShouldAutoQuest()
     if not AutoLazyDB or not AutoLazyDB.Quests or not AutoLazyDB.Quests.Enabled then return false end
     if AutoLazyDB.Quests.AlwaysActive then return true end
     if questSessionActive then return true end
-    return not not IsShiftKeyDown()
+    return (IsShiftKeyDown and IsShiftKeyDown()) and true or false
 end
 
 --------------------------------------------------
@@ -969,9 +969,10 @@ function AutoLazy_PrintStatus()
 
     local masterStatus = AutoLazyDB.Enabled and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"
     local bopStatus = AutoLazyDB.AutoConfirmBop and "|cFF00FF00ON|r" or "|cFFFF2020OFF|r"
+    local cleanRollStatus = AutoLazyDB.CleanRollChat and "|cFF00FF00ON|r" or "|cFFFF2020OFF|r"
     local questMode = (AutoLazyDB.Quests and AutoLazyDB.Quests.AlwaysActive) and "Always" or "Shift-Click"
     local questStatus = (AutoLazyDB.Quests and AutoLazyDB.Quests.Enabled) and ("|cFF00FF00ON (" .. questMode .. ")|r") or "|cFFFF2020OFF|r"
-    AutoLazy_Print("Listed item auto-roll: " .. masterStatus .. " | BoP confirmation: " .. bopStatus .. " | Quests: " .. questStatus)
+    AutoLazy_Print("Listed item auto-roll: " .. masterStatus .. " | BoP confirmation: " .. bopStatus .. " | Clean Roll: " .. cleanRollStatus .. " | Quests: " .. questStatus)
 
     local currentZone = (GetRealZoneText and GetRealZoneText()) or (GetZoneText and GetZoneText()) or "Unknown"
     if CachedDungeonKey then
@@ -992,154 +993,267 @@ local function DismissConfirmPopups(rollId)
     end
 end
 
+--------------------------------------------------------------------------------
+-- Clean Group Loot Roll Presentation
+--------------------------------------------------------------------------------
+
+local ROLL_FORMAT_KEYS = {
+    "LOOT_ROLL_NEED",
+    "LOOT_ROLL_NEED_SELF",
+    "LOOT_ROLL_GREED",
+    "LOOT_ROLL_GREED_SELF",
+    "LOOT_ROLL_PASS",
+    "LOOT_ROLL_PASSED",
+    "LOOT_ROLL_PASSED_SELF",
+    "LOOT_ROLL_ROLLED_NEED",
+    "LOOT_ROLL_ROLLED_GREED",
+    "LOOT_ROLL_ALL_PASSED",
+    "LOOT_ROLL_PENDING",
+}
+
+local suppressedLootPatterns = nil
+
+local function FormatToPattern(fmt)
+    if not fmt or type(fmt) ~= "string" then return nil end
+    local p = string.gsub(fmt, "([%(%)%.%+%-%*%?%[%]%^%$])", "%%%1")
+    p = string.gsub(p, "%%%d+%$s", ".+")
+    p = string.gsub(p, "%%%d+%$d", "%%d+")
+    p = string.gsub(p, "%%s", ".+")
+    p = string.gsub(p, "%%d", "%%d+")
+    return "^" .. p .. "$"
+end
+
+local function InitLootChatPatterns()
+    if suppressedLootPatterns then return end
+    suppressedLootPatterns = {}
+    for i = 1, #ROLL_FORMAT_KEYS do
+        local key = ROLL_FORMAT_KEYS[i]
+        local fmt = getglobal(key)
+        if fmt and type(fmt) == "string" then
+            local pat = FormatToPattern(fmt)
+            if pat then
+                table_insert(suppressedLootPatterns, pat)
+            end
+        end
+    end
+end
+
+local function ShouldSuppressLootMessage(msg)
+    if not AutoLazyDB or not AutoLazyDB.CleanRollChat then return false end
+    if not msg or type(msg) ~= "string" then return false end
+    if not suppressedLootPatterns then InitLootChatPatterns() end
+    for i = 1, #suppressedLootPatterns do
+        if string_find(msg, suppressedLootPatterns[i]) then
+            return true
+        end
+    end
+    return false
+end
+
+local orig_ChatFrame_OnEvent = nil
+local function HookChatFrameEvents()
+    if orig_ChatFrame_OnEvent then return end
+    if type(ChatFrame_OnEvent) ~= "function" then return end
+    orig_ChatFrame_OnEvent = ChatFrame_OnEvent
+    ChatFrame_OnEvent = function(event)
+        if event == "CHAT_MSG_LOOT" and arg1 then
+            if ShouldSuppressLootMessage(arg1) then
+                return
+            end
+        end
+        return orig_ChatFrame_OnEvent(event)
+    end
+end
+
+AutoLazy.ShouldSuppressLootMessage = ShouldSuppressLootMessage
+AutoLazy.InitLootChatPatterns = InitLootChatPatterns
+
+-- Zul'Gurub Bijou itemIDs (19707 to 19715)
+local ZG_BIJOUS = { 19707, 19708, 19709, 19710, 19711, 19712, 19713, 19714, 19715 }
+
+-- Zul'Gurub Coin sets
+local ZG_COINS_ZULIAN    = { 19698, 19699, 19700 } -- Zulian, Razzashi, Hakkari
+local ZG_COINS_SANDFURY  = { 19701, 19702, 19703 } -- Sandfury, Skullsplitter, Bloodscalp
+local ZG_COINS_GURUBASHI = { 19704, 19705, 19706 } -- Gurubashi, Vilebranch, Witherbark
+
 local RepeatableTurnIns = {
     -- Argent Dawn (Scourgestones, Materials, Writs)
-    { quest = "minion", item = "minion's scourgestone", minCount = 20 },
-    { quest = "invader", item = "invader's scourgestone", minCount = 10 },
-    { quest = "corruptor", item = "corruptor's scourgestone", minCount = 5 },
-    { quest = "healthy dragon scale", item = "healthy dragon scale", minCount = 1 },
-    { quest = "bone fragments", item = "bone fragments", minCount = 30 },
-    { quest = "crypt fiend parts", item = "crypt fiend parts", minCount = 30 },
-    { quest = "core of elements", item = "core of elements", minCount = 30 },
-    { quest = "savage frond", item = "savage frond", minCount = 30 },
-    { quest = "somber hourglass", item = "somber hourglass", minCount = 30 },
-    { quest = "dark rune", item = "dark rune", minCount = 1 },
-    { quest = "craftsman", item = "craftsman's writ", minCount = 1 },
+    { quest = "minion",            item = 12840, minCount = 20 }, -- Minion's Scourgestone
+    { quest = "invader",           item = 12841, minCount = 10 }, -- Invader's Scourgestone
+    { quest = "corruptor",         item = 12843, minCount = 5 },  -- Corruptor's Scourgestone
+    { quest = "dragon scale",      item = 13920, minCount = 1 },  -- Healthy Dragon Scale
+    { quest = "bone fragments",    item = 22526, minCount = 30 }, -- Bone Fragments
+    { quest = "crypt fiend parts", item = 22525, minCount = 30 }, -- Crypt Fiend Parts
+    { quest = "core of elements",  item = 22527, minCount = 30 }, -- Core of Elements
+    { quest = "savage frond",      item = 22529, minCount = 30 }, -- Savage Frond
+    { quest = "somber hourglass",  item = 12739, minCount = 30 }, -- Somber Hourglass
+    { quest = "dark rune",         item = 20520, minCount = 1 },  -- Dark Rune
+    { quest = "craftsman",         item = "craftsman's writ", minCount = 1 },
 
     -- Winterspring E'ko (Witch Doctor Mau'ari)
-    { quest = "winterfall e'ko", item = "winterfall e'ko", minCount = 10 },
-    { quest = "frostmaul e'ko", item = "frostmaul e'ko", minCount = 10 },
-    { quest = "shardtooth e'ko", item = "shardtooth e'ko", minCount = 10 },
-    { quest = "frostsaber e'ko", item = "frostsaber e'ko", minCount = 10 },
-    { quest = "wildkin e'ko", item = "wildkin e'ko", minCount = 10 },
-    { quest = "chillwind e'ko", item = "chillwind e'ko", minCount = 10 },
-    { quest = "ice thistle e'ko", item = "ice thistle e'ko", minCount = 10 },
+    { quest = "winterfall e'ko",   item = 12430, minCount = 10 },
+    { quest = "frostmaul e'ko",    item = 12431, minCount = 10 },
+    { quest = "shardtooth e'ko",   item = 12432, minCount = 10 },
+    { quest = "frostsaber e'ko",   item = 12433, minCount = 10 },
+    { quest = "wildkin e'ko",      item = 12434, minCount = 10 },
+    { quest = "chillwind e'ko",    item = 12435, minCount = 10 },
+    { quest = "ice thistle e'ko",  item = 12436, minCount = 10 },
 
     -- Thorium Brotherhood
-    { quest = "dark iron residue", item = "dark iron residue", minCount = 4 },
-    { quest = "dark iron ore", item = "dark iron ore", minCount = 10 },
-    { quest = "restoring fiery flux via heavy leather", item = "heavy leather", minCount = 2 },
-    { quest = "restoring fiery flux via iron", item = "iron bar", minCount = 4 },
-    { quest = "restoring fiery flux via coal", item = "coal", minCount = 1 },
-    { quest = "restoring fiery flux via incendosaur scale", item = "incendosaur scale", minCount = 2 },
-    { quest = "fiery core", item = "fiery core", minCount = 1 },
-    { quest = "lava core", item = "lava core", minCount = 1 },
-    { quest = "blood of the mountain", item = "blood of the mountain", minCount = 1 },
-    { quest = "core leather", item = "core leather", minCount = 2 },
+    { quest = "dark iron residue",                      item = 18945, minCount = 4 },
+    { quest = "dark iron ore",                          item = 11370, minCount = 10 },
+    { quest = "restoring fiery flux via heavy leather", item = 4234,  minCount = 2 },
+    { quest = "restoring fiery flux via iron",          item = 3575,  minCount = 4 },
+    { quest = "restoring fiery flux via coal",          item = 3857,  minCount = 1 },
+    { quest = "restoring fiery flux via incendosaur scale", item = 11371, minCount = 2 },
+    { quest = "fiery core",                             item = 17010, minCount = 1 },
+    { quest = "lava core",                              item = 17011, minCount = 1 },
+    { quest = "blood of the mountain",                  item = 11382, minCount = 1 },
+    { quest = "core leather",                           item = 17012, minCount = 2 },
 
     -- Cenarion Circle (Silithus)
-    { quest = "encrypted twilight text", item = "encrypted twilight text", minCount = 10 },
-    { quest = "secret communication", item = "encrypted twilight text", minCount = 10 },
-    { quest = "abyssal crest", item = "abyssal crest", minCount = 3 },
-    { quest = "abyssal signet", item = "abyssal signet", minCount = 3 },
-    { quest = "abyssal scepter", item = "abyssal scepter", minCount = 3 },
+    { quest = "encrypted twilight text", item = 20404, minCount = 10 },
+    { quest = "secret communication",     item = 20404, minCount = 10 },
+    { quest = "abyssal crest",           item = 20513, minCount = 3 },
+    { quest = "abyssal signet",          item = 20514, minCount = 3 },
+    { quest = "abyssal scepter",         item = 20515, minCount = 3 },
 
     -- Timbermaw Hold
-    { quest = "deadwood headdress feather", item = "deadwood headdress feather", minCount = 5 },
-    { quest = "winterfall spirit bead", item = "winterfall spirit beads", minCount = 5 },
-    { quest = "water elemental core", item = "water elemental core", minCount = 1 },
+    { quest = "deadwood headdress feather", item = 21377, minCount = 5 },
+    { quest = "winterfall spirit bead",     item = 21383, minCount = 5 },
+    { quest = "water elemental core",       item = 5466,  minCount = 1 },
 
     -- Zandalar Tribe / Zul'Gurub
-    { quest = "zulian", item = "zulian coin", minCount = 1 },
-    { quest = "sandfury", item = "sandfury coin", minCount = 1 },
-    { quest = "gurubashi", item = "gurubashi coin", minCount = 1 },
-    { quest = "hakkari bijou", item = "bijou", minCount = 1 },
+    { quest = "zulian",        item = ZG_COINS_ZULIAN,    minCount = 1 },
+    { quest = "sandfury",      item = ZG_COINS_SANDFURY,  minCount = 1 },
+    { quest = "gurubashi",     item = ZG_COINS_GURUBASHI, minCount = 1 },
+    { quest = "hakkari bijou", item = ZG_BIJOUS,          minCount = 1 },
 
     -- Un'Goro Crater
-    { quest = "morrowgrain", item = "morrowgrain", minCount = 10 },
-    { quest = "bloodpetal", item = "bloodpetal sprout", minCount = 15 },
+    { quest = "morrowgrain", item = 11040, minCount = 10 },
+    { quest = "bloodpetal",  item = 11042, minCount = 15 },
 
     -- Cloth Donations
-    { quest = "runecloth", item = "runecloth", minCount = 20 },
+    { quest = "runecloth", item = 14047, minCount = 20 },
 
     -- Alterac Valley
-    { quest = "armor scrap", item = "armor scraps", minCount = 20 },
-    { quest = "soldier's blood", item = "soldier's blood", minCount = 5 },
-    { quest = "soldiers blood", item = "soldiers blood", minCount = 5 },
-    { quest = "lieutenant's flesh", item = "lieutenant's flesh", minCount = 1 },
-    { quest = "ram hide", item = "alterac ram hide", minCount = 20 },
-    { quest = "frostwolf hide", item = "frostwolf hide", minCount = 20 },
-    { quest = "irondeep supplies", item = "irondeep supplies", minCount = 10 },
-    { quest = "coldtooth supplies", item = "coldtooth supplies", minCount = 10 },
+    { quest = "armor scrap",         item = 17422, minCount = 20 },
+    { quest = "soldier's blood",     item = 17306, minCount = 5 },
+    { quest = "soldiers blood",      item = 17306, minCount = 5 },
+    { quest = "lieutenant's flesh",  item = 17423, minCount = 1 },
+    { quest = "ram hide",            item = 17643, minCount = 20 },
+    { quest = "frostwolf hide",      item = 17642, minCount = 20 },
+    { quest = "irondeep supplies",   item = 17424, minCount = 10 },
+    { quest = "coldtooth supplies",  item = 17425, minCount = 10 },
 
-    -- Custom / World
-    { quest = "tel'abim banana", item = "tel'abim banana", minCount = 5 },
-    { quest = "telabim banana", item = "tel'abim banana", minCount = 5 },
-    { quest = "bloodfang tail", item = "bloodfang tail", minCount = 5 },
+    -- Custom / World (OctoWoW)
+    -- Quest 40739: "The Tel'Abim Banana Transmutation"
+    {
+        questID = 40739,
+        requires = {
+            { item = 60954, count = 3 },
+            { item = 11176, count = 1 },
+        },
+    },
+    -- Quest 40740: "Tel'Abim Banana Transmutations!"
+    {
+        questID = 40740,
+        requires = {
+            { item = 60954, count = 15 },
+            { item = 11176, count = 5 },
+        },
+    },
 }
 
 local GossipTurnInKeywords = {
     -- Lokhtos Darkbargainer (BRD)
-    { match = "dark iron residue", item = "dark iron residue", minCount = 4 },
-    { match = "dark iron ore", item = "dark iron ore", minCount = 10 },
-    { match = "blood of the mountain", item = "blood of the mountain", minCount = 1 },
-    { match = "fiery core", item = "fiery core", minCount = 1 },
-    { match = "lava core", item = "lava core", minCount = 1 },
-    { match = "core leather", item = "core leather", minCount = 2 },
+    { match = "dark iron residue",     item = 18945, minCount = 4 },
+    { match = "dark iron ore",         item = 11370, minCount = 10 },
+    { match = "blood of the mountain", item = 11382, minCount = 1 },
+    { match = "fiery core",            item = 17010, minCount = 1 },
+    { match = "lava core",             item = 17011, minCount = 1 },
+    { match = "core leather",          item = 17012, minCount = 2 },
 
     -- Altar of Zanza (ZG Bijou destruction)
-    { match = "red hakkari bijou", item = "red hakkari bijou", minCount = 1 },
-    { match = "blue hakkari bijou", item = "blue hakkari bijou", minCount = 1 },
-    { match = "yellow hakkari bijou", item = "yellow hakkari bijou", minCount = 1 },
-    { match = "orange hakkari bijou", item = "orange hakkari bijou", minCount = 1 },
-    { match = "green hakkari bijou", item = "green hakkari bijou", minCount = 1 },
-    { match = "purple hakkari bijou", item = "purple hakkari bijou", minCount = 1 },
-    { match = "bronze hakkari bijou", item = "bronze hakkari bijou", minCount = 1 },
-    { match = "silver hakkari bijou", item = "silver hakkari bijou", minCount = 1 },
-    { match = "gold hakkari bijou", item = "gold hakkari bijou", minCount = 1 },
-    { match = "destroy", item = "bijou", minCount = 1 },
+    { match = "red hakkari bijou",    item = 19707, minCount = 1 },
+    { match = "blue hakkari bijou",   item = 19708, minCount = 1 },
+    { match = "yellow hakkari bijou", item = 19709, minCount = 1 },
+    { match = "orange hakkari bijou", item = 19710, minCount = 1 },
+    { match = "green hakkari bijou",  item = 19711, minCount = 1 },
+    { match = "purple hakkari bijou", item = 19712, minCount = 1 },
+    { match = "bronze hakkari bijou", item = 19713, minCount = 1 },
+    { match = "silver hakkari bijou", item = 19714, minCount = 1 },
+    { match = "gold hakkari bijou",   item = 19715, minCount = 1 },
+    { match = "destroy",              item = ZG_BIJOUS, minCount = 1 },
 
     -- Alterac Valley
-    { match = "armor scrap", item = "armor scraps", minCount = 20 },
-    { match = "soldier's blood", item = "soldier's blood", minCount = 5 },
-    { match = "soldiers blood", item = "soldiers blood", minCount = 5 },
-    { match = "lieutenant's flesh", item = "lieutenant's flesh", minCount = 1 },
+    { match = "armor scrap",        item = 17422, minCount = 20 },
+    { match = "soldier's blood",    item = 17306, minCount = 5 },
+    { match = "soldiers blood",     item = 17306, minCount = 5 },
+    { match = "lieutenant's flesh", item = 17423, minCount = 1 },
 
     -- Submenu Openers
-    { match = "scourgestone", opener = true },
-    { match = "twilight text", opener = true },
+    { match = "scourgestone",   opener = true },
+    { match = "twilight text",  opener = true },
     { match = "craftsman's writ", opener = true },
-    { match = "turn in", opener = true },
+    { match = "turn in",        opener = true },
 }
 
-local function GetPlayerItemCount(targetItem)
-    if not targetItem or targetItem == "" then return 0 end
-    if GetItemCount then
-        local c = GetItemCount(targetItem)
-        if c and c > 0 then return c end
-    end
-    if C_Item and C_Item.GetItemCount then
-        local c = C_Item.GetItemCount(targetItem)
-        if c and c > 0 then return c end
-    end
-    local targetLower = string_lower(targetItem)
-    local total = 0
-    for bag = 0, 4 do
-        local numSlots = GetContainerNumSlots(bag)
-        if numSlots and numSlots > 0 then
-            for slot = 1, numSlots do
-                local link = GetContainerItemLink(bag, slot)
-                if link then
-                    local _, _, name = string_find(link, "%[(.+)%]")
-                    if name and string_find(string_lower(name), targetLower, 1, true) then
-                        local _, count = GetContainerItemInfo(bag, slot)
-                        total = total + (count or 1)
-                    end
-                end
-            end
+local function GetPlayerItemCount(target)
+    if not target then return 0 end
+    local targetType = type(target)
+    if targetType == "number" then
+        return C_Item.GetItemCount(target) or 0
+    elseif targetType == "table" then
+        local total = 0
+        for i = 1, #target do
+            total = total + (C_Item.GetItemCount(target[i]) or 0)
         end
+        return total
+    elseif targetType == "string" then
+        if target == "" then return 0 end
+        return C_Item.GetItemCount(target) or 0
     end
-    return total
+    return 0
 end
 
-local function MatchesRepeatableRequirement(title)
-    if not title or title == "" then return false end
-    local lowerTitle = string.lower(title)
+local function MatchesRepeatableRequirement(title, questID)
+    if type(title) == "table" then
+        questID = title.questID
+        title = title.title
+    end
+    local lowerTitle = (title and title ~= "") and string.lower(title) or nil
     for _, rep in ipairs(RepeatableTurnIns) do
-        if string.find(lowerTitle, rep.quest, 1, true) then
-            local count = GetPlayerItemCount(rep.item)
-            if count >= rep.minCount then
-                return true, rep
+        local matched = false
+        if rep.questID then
+            if questID and rep.questID == questID then
+                matched = true
+            end
+        elseif rep.quest and lowerTitle then
+            if string.find(lowerTitle, rep.quest, 1, true) then
+                matched = true
+            end
+        end
+
+        if matched then
+            if rep.requires then
+                local satisfied = true
+                for i = 1, #rep.requires do
+                    local req = rep.requires[i]
+                    local count = C_Item.GetItemCount(req.item) or 0
+                    if count < req.count then
+                        satisfied = false
+                        break
+                    end
+                end
+                if satisfied then
+                    return true, rep
+                end
+            elseif rep.item then
+                local count = GetPlayerItemCount(rep.item)
+                if count >= (rep.minCount or 1) then
+                    return true, rep
+                end
             end
         end
     end
@@ -1166,169 +1280,114 @@ end
 
 local function ProcessGossip()
     if not ShouldAutoQuest() then return false end
+    local hasWaitingQuests = false
 
-    -- 1. Try ClassicAPI C_GossipInfo (Native C++ Modern API)
-    if C_GossipInfo and C_GossipInfo.GetActiveQuests and C_GossipInfo.SelectActiveQuest then
-        if AutoLazyDB.Quests.AutoTurnIn then
-            local active = C_GossipInfo.GetActiveQuests()
-            if active and #active > 0 then
-                -- Priority 1: Priority to explicitly completed quests (e.g. Winterfall E'ko, Scourgestones)
-                for i = 1, #active do
-                    local q = active[i]
-                    if q and q.questID and q.isComplete then
-                        C_GossipInfo.SelectActiveQuest(q.questID)
-                        return true
-                    end
-                end
-                -- Priority 2: Exactly 1 quest offered and not incomplete
-                if #active == 1 and active[1] and active[1].questID and active[1].isComplete ~= false then
-                    C_GossipInfo.SelectActiveQuest(active[1].questID)
-                    return true
+    -- 1. Active Quests (Turn-In)
+    if AutoLazyDB.Quests.AutoTurnIn then
+        local active = C_GossipInfo.GetActiveQuests()
+        if active and #active > 0 then
+            local completed = {}
+            for i = 1, #active do
+                local q = active[i]
+                if q and q.questID and (q.isComplete == true or q.isComplete == 1) then
+                    table_insert(completed, q)
                 end
             end
 
-            -- Priority 3: Direct Gossip Turn-Ins (e.g. Altar of Zanza Bijous, Lokhtos Dark Iron, AV Scraps)
-            if C_GossipInfo.GetOptions and (C_GossipInfo.SelectOption or SelectGossipOption) then
-                local options = C_GossipInfo.GetOptions()
-                if options and #options > 0 then
-                    for i = 1, #options do
-                        local opt = options[i]
-                        local optName = opt.name or opt.title
-                        if optName and MatchesGossipTurnIn(optName) then
-                            if C_GossipInfo.SelectOption and opt.gossipOptionID then
-                                C_GossipInfo.SelectOption(opt.gossipOptionID)
-                            else
-                                SelectGossipOption(i)
-                            end
-                            return true
-                        end
-                    end
+            -- Priority 1: Repeatable turn-ins matching player inventory in bags
+            for i = 1, #completed do
+                local q = completed[i]
+                if q.title and MatchesRepeatableRequirement(q.title, q.questID) then
+                    C_GossipInfo.SelectActiveQuest(q.questID)
+                    return "ACTION"
                 end
+            end
+
+            -- Priority 2: Unambiguous single completed quest
+            if #completed == 1 and completed[1] and completed[1].questID then
+                C_GossipInfo.SelectActiveQuest(completed[1].questID)
+                return "ACTION"
+            elseif #completed > 1 then
+                hasWaitingQuests = true
             end
         end
 
-        if AutoLazyDB.Quests.AutoAccept and C_GossipInfo.GetAvailableQuests and C_GossipInfo.SelectAvailableQuest then
-            local avail = C_GossipInfo.GetAvailableQuests()
-            if avail and #avail > 0 then
-                -- Priority 1: Repeatable turn-ins matching player inventory in bags (ignores isTrivial)
-                for i = 1, #avail do
-                    local q = avail[i]
-                    if q and q.questID and q.title and MatchesRepeatableRequirement(q.title) then
-                        C_GossipInfo.SelectAvailableQuest(q.questID)
-                        return true
+        -- Priority 3: Direct Gossip Turn-Ins (e.g. Altar of Zanza Bijous, Lokhtos Dark Iron, AV Scraps)
+        local options = C_GossipInfo.GetOptions()
+        if options and #options > 0 then
+            for i = 1, #options do
+                local opt = options[i]
+                local optName = opt.name or opt.title
+                if optName and MatchesGossipTurnIn(optName) then
+                    if opt.gossipOptionID then
+                        C_GossipInfo.SelectOption(opt.gossipOptionID)
+                    else
+                        C_GossipInfo.SelectOptionByIndex(i)
                     end
+                    return "ACTION"
                 end
-                -- Priority 2: Non-trivial available quests
-                for i = 1, #avail do
-                    local q = avail[i]
-                    if q and q.questID and not q.isTrivial then
-                        C_GossipInfo.SelectAvailableQuest(q.questID)
-                        return true
-                    end
-                end
-                -- Priority 3: Fallback to first offered available quest
-                if avail[1] and avail[1].questID then
-                    C_GossipInfo.SelectAvailableQuest(avail[1].questID)
-                    return true
-                end
-            end
-        end
-
-    -- 2. Fallback to Vanilla 1.12.1 Gossip APIs
-    else
-        if AutoLazyDB.Quests.AutoTurnIn and GetGossipActiveQuests and SelectGossipActiveQuest then
-            local activeQuests = { GetGossipActiveQuests() }
-            local numActive = (GetNumGossipActiveQuests and GetNumGossipActiveQuests()) or 0
-            if numActive == 0 and #activeQuests > 0 then
-                numActive = math.floor(#activeQuests / 4)
-            end
-            if numActive > 0 then
-                for k = 1, numActive do
-                    local base = (k - 1) * 4
-                    local title = activeQuests[base + 1]
-                    local isComplete = activeQuests[base + 4]
-                    if title and isComplete then
-                        SelectGossipActiveQuest(k)
-                        return true
-                    end
-                end
-                if numActive == 1 and activeQuests[1] then
-                    SelectGossipActiveQuest(1)
-                    return true
-                end
-            end
-
-            -- Direct Gossip Turn-Ins (Vanilla Fallback)
-            if GetGossipOptions and SelectGossipOption then
-                local gOptions = { GetGossipOptions() }
-                local numG = (GetNumGossipOptions and GetNumGossipOptions()) or 0
-                if numG == 0 and #gOptions > 0 then
-                    numG = math.floor(#gOptions / 2)
-                end
-                if numG > 0 then
-                    for k = 1, numG do
-                        local text = gOptions[(k - 1) * 2 + 1]
-                        if text and MatchesGossipTurnIn(text) then
-                            SelectGossipOption(k)
-                            return true
-                        end
-                    end
-                end
-            end
-        end
-
-        if AutoLazyDB.Quests.AutoAccept and GetGossipAvailableQuests and SelectGossipAvailableQuest then
-            local availQuests = { GetGossipAvailableQuests() }
-            local numAvail = (GetNumGossipAvailableQuests and GetNumGossipAvailableQuests()) or 0
-            if numAvail == 0 and #availQuests > 0 then
-                numAvail = math.floor(#availQuests / 3)
-            end
-            if numAvail > 0 then
-                -- Priority 1: Repeatable turn-ins matching player inventory
-                for k = 1, numAvail do
-                    local base = (k - 1) * 3
-                    local title = availQuests[base + 1]
-                    if title and MatchesRepeatableRequirement(title) then
-                        SelectGossipAvailableQuest(k)
-                        return true
-                    end
-                end
-                -- Priority 2: Non-trivial available quests
-                for k = 1, numAvail do
-                    local base = (k - 1) * 3
-                    local title = availQuests[base + 1]
-                    local isTrivial = availQuests[base + 3]
-                    if title and not isTrivial then
-                        SelectGossipAvailableQuest(k)
-                        return true
-                    end
-                end
-                -- Priority 3: Fallback
-                SelectGossipAvailableQuest(1)
-                return true
             end
         end
     end
 
+    -- 2. Available Quests (Accept)
+    if AutoLazyDB.Quests.AutoAccept then
+        local avail = C_GossipInfo.GetAvailableQuests()
+        if avail and #avail > 0 then
+            -- Priority 1: Repeatable turn-ins matching player inventory in bags
+            for i = 1, #avail do
+                local q = avail[i]
+                if q and q.questID and q.title and MatchesRepeatableRequirement(q.title, q.questID) then
+                    C_GossipInfo.SelectAvailableQuest(q.questID)
+                    return "ACTION"
+                end
+            end
+
+            -- Priority 2: Exactly 1 available quest
+            if #avail == 1 and avail[1] and avail[1].questID then
+                C_GossipInfo.SelectAvailableQuest(avail[1].questID)
+                return "ACTION"
+            elseif #avail > 1 then
+                hasWaitingQuests = true
+            end
+        end
+    end
+
+    if hasWaitingQuests then
+        return "WAITING"
+    end
     return false
 end
 
 local function ProcessGreeting()
     if not ShouldAutoQuest() then return false end
+    local hasWaitingQuests = false
 
     if AutoLazyDB.Quests.AutoTurnIn and GetNumActiveQuests and GetActiveTitle and SelectActiveQuest then
         local numActive = GetNumActiveQuests()
         if numActive and numActive > 0 then
+            local completed = {}
             for i = 1, numActive do
                 local title, isComplete = GetActiveTitle(i)
-                if isComplete then
-                    SelectActiveQuest(i)
-                    return true
+                if isComplete == 1 or isComplete == true then
+                    table_insert(completed, { index = i, title = title })
                 end
             end
-            if numActive == 1 then
-                SelectActiveQuest(1)
-                return true
+
+            -- Priority 1: Repeatable turn-ins matching player inventory in bags
+            for i = 1, #completed do
+                if completed[i].title and MatchesRepeatableRequirement(completed[i].title) then
+                    SelectActiveQuest(completed[i].index)
+                    return "ACTION"
+                end
+            end
+
+            -- Priority 2: Exactly 1 completed quest
+            if #completed == 1 then
+                SelectActiveQuest(completed[1].index)
+                return "ACTION"
+            elseif #completed > 1 then
+                hasWaitingQuests = true
             end
         end
     end
@@ -1342,16 +1401,24 @@ local function ProcessGreeting()
                     local title = GetAvailableTitle(i)
                     if title and MatchesRepeatableRequirement(title) then
                         SelectAvailableQuest(i)
-                        return true
+                        return "ACTION"
                     end
                 end
             end
-            -- Priority 2: Select first available quest
-            SelectAvailableQuest(1)
-            return true
+
+            -- Priority 2: Exactly 1 available quest
+            if numAvail == 1 then
+                SelectAvailableQuest(1)
+                return "ACTION"
+            elseif numAvail > 1 then
+                hasWaitingQuests = true
+            end
         end
     end
 
+    if hasWaitingQuests then
+        return "WAITING"
+    end
     return false
 end
 
@@ -1373,16 +1440,17 @@ local function TryQuestChain(token)
         activeNpcGUID = nil
         return
     end
+
+    local res = false
     if GossipFrame and GossipFrame:IsShown() then
-        if not ProcessGossip() then
-            questSessionActive = false
-        end
+        res = ProcessGossip()
     elseif QuestFrameGreetingPanel and QuestFrameGreetingPanel:IsShown() then
-        if not ProcessGreeting() then
-            questSessionActive = false
-        end
-    else
+        res = ProcessGreeting()
+    end
+
+    if res == false then
         questSessionActive = false
+        activeNpcGUID = nil
     end
 end
 
@@ -1412,6 +1480,7 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
 
     if (ev == "ADDON_LOADED" and a1 == addonName) or ev == "VARIABLES_LOADED" then
         InitDB()
+        HookChatFrameEvents()
         UpdateZoneCache()
         AutoLazy_UpdateActionButton()
         AutoLazy_ApplySystemIconToggles()
@@ -1459,9 +1528,6 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
 
         if rollType ~= nil then
             RollOnLoot(rollId, rollType)
-            if AutoLazyDB.AnnounceChat then
-                AutoLazy_Print(actionName .. " on " .. itemLink .. " (" .. (CachedDungeonDef and CachedDungeonDef.title or CachedDungeonKey) .. ")")
-            end
         end
 
     elseif ev == "CONFIRM_LOOT_ROLL" then
@@ -1505,9 +1571,15 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
         ProcessGossip()
 
     elseif ev == "GOSSIP_CLOSED" then
-        questSessionActive = false
-        activeNpcGUID = nil
-        currentQuestSessionToken = currentQuestSessionToken + 1
+        local token = currentQuestSessionToken
+        C_Timer.After(0.5, function()
+            if token == currentQuestSessionToken then
+                if not (GossipFrame and GossipFrame:IsShown()) and not (QuestFrame and QuestFrame:IsShown()) then
+                    questSessionActive = false
+                    activeNpcGUID = nil
+                end
+            end
+        end)
 
     elseif ev == "QUEST_GREETING" then
         activeNpcGUID = (UnitGUID and (UnitGUID("npc") or UnitGUID("target"))) or nil
@@ -1554,6 +1626,12 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
     end
 end)
 
+local function ToggleCleanRollChat()
+    AutoLazyDB.CleanRollChat = not AutoLazyDB.CleanRollChat
+    AutoLazy_Print("Clean Roll Chat: " .. (AutoLazyDB.CleanRollChat and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
+    if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end
+end
+
 -- Data-Driven Slash Command Dispatcher
 local slashToggles = {
     tray = function() AutoLazy_ToggleTray() end,
@@ -1573,6 +1651,9 @@ local slashToggles = {
     end,
     on = function() AutoLazyDB.Enabled = true; AutoLazy_Print("Listed item auto-roll is now |cFF00FF00ENABLED|r."); if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end end,
     off = function() AutoLazyDB.Enabled = false; AutoLazy_Print("Listed item auto-roll is now |cFFFF2020DISABLED|r."); if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end end,
+
+    clean = ToggleCleanRollChat,
+    cleanroll = ToggleCleanRollChat,
 
     quest = function()
         AutoLazyDB.Quests.Enabled = not AutoLazyDB.Quests.Enabled
@@ -1619,11 +1700,6 @@ local slashToggles = {
         AutoLazy_Print("Auto-Confirm BoP: " .. (AutoLazyDB.AutoConfirmBop and "|cFF00FF00ON|r" or "|cFFFF2020OFF|r"))
         if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end
     end,
-    chat = function()
-        AutoLazyDB.AnnounceChat = not AutoLazyDB.AnnounceChat
-        AutoLazy_Print("Chat Roll Alerts: " .. (AutoLazyDB.AnnounceChat and "|cFF00FF00ON|r" or "|cFFFF2020OFF|r"))
-        if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end
-    end,
 }
 
 SLASH_AUTOLAZY1 = "/autolazy"
@@ -1639,6 +1715,24 @@ SlashCmdList["AUTOLAZY"] = function(msg)
     elseif cmd == "" or cmd == "gui" or cmd == "menu" or cmd == "config" or cmd == "options" then
         if AutoLazy_ToggleGUI then AutoLazy_ToggleGUI() else AutoLazy_PrintStatus() end
     else
-        AutoLazy_Print("Commands: /al, /al tray, /al collapse, /al resetpos, /al btn, /al radio, /al lfg, /al toggle, /al quest, /al turnin, /al accept, /al always, /al status")
+        AutoLazy_Print("Commands: /al, /al tray, /al collapse, /al resetpos, /al btn, /al radio, /al lfg, /al toggle, /al clean, /al quest, /al turnin, /al accept, /al always, /al status")
     end
 end
+
+-- Initialize presentation hooks if chat frame is already loaded
+HookChatFrameEvents()
+
+-- Export module internals for verified test suite validation
+AutoLazy.ProcessGossip = ProcessGossip
+AutoLazy.ProcessGreeting = ProcessGreeting
+AutoLazy.TryQuestChain = TryQuestChain
+AutoLazy.ShouldAutoQuest = ShouldAutoQuest
+AutoLazy.MatchesRepeatableRequirement = MatchesRepeatableRequirement
+AutoLazy.MatchesGossipTurnIn = MatchesGossipTurnIn
+AutoLazy.GetPlayerItemCount = GetPlayerItemCount
+AutoLazy.SetQuestSessionActive = function(val) questSessionActive = val end
+AutoLazy.GetQuestSessionActive = function() return questSessionActive end
+AutoLazy.SetCurrentQuestSessionToken = function(val) currentQuestSessionToken = val end
+AutoLazy.GetCurrentQuestSessionToken = function() return currentQuestSessionToken end
+AutoLazy.SetActiveNpcGUID = function(val) activeNpcGUID = val end
+AutoLazy.GetActiveNpcGUID = function() return activeNpcGUID end
