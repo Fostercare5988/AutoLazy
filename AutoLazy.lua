@@ -1094,13 +1094,13 @@ local RepeatableTurnIns = {
     { quest = "craftsman",         item = "craftsman's writ", minCount = 1 },
 
     -- Winterspring E'ko (Witch Doctor Mau'ari)
-    { quest = "winterfall e'ko",   item = 12430, minCount = 10 },
-    { quest = "frostmaul e'ko",    item = 12431, minCount = 10 },
-    { quest = "shardtooth e'ko",   item = 12432, minCount = 10 },
-    { quest = "frostsaber e'ko",   item = 12433, minCount = 10 },
-    { quest = "wildkin e'ko",      item = 12434, minCount = 10 },
-    { quest = "chillwind e'ko",    item = 12435, minCount = 10 },
-    { quest = "ice thistle e'ko",  item = 12436, minCount = 10 },
+    { quest = "frostsaber e'ko",   item = 12430, minCount = 3 },
+    { quest = "winterfall e'ko",   item = 12431, minCount = 3 },
+    { quest = "shardtooth e'ko",   item = 12432, minCount = 3 },
+    { quest = "wildkin e'ko",      item = 12433, minCount = 3 },
+    { quest = "chillwind e'ko",    item = 12434, minCount = 3 },
+    { quest = "ice thistle e'ko",  item = 12435, minCount = 3 },
+    { quest = "frostmaul e'ko",    item = 12436, minCount = 3 },
 
     -- Thorium Brotherhood
     { quest = "dark iron residue",                      item = 18945, minCount = 4 },

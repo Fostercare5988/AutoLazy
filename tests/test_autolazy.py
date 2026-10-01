@@ -762,6 +762,58 @@ class AutoLazyTests(unittest.TestCase):
         all_msgs2 = "\n".join(list(g.chatMessages.values()))
         self.assertIn("Clean Roll: |cFFFF2020OFF|r", all_msgs2)
 
+    def test_winterspring_eko_repeatable_requirements(self):
+        """Winterspring E'ko requirements match 3x items with correct item IDs."""
+        import collections
+        inventory = collections.defaultdict(int)
+        extra = """
+            C_Item = {
+                GetItemCount = function(id)
+                    return inv_counts[id] or 0
+                end
+            }
+        """
+        lua = create_autolazy_runtime(extra)
+        g = lua.globals()
+        g.inv_counts = inventory
+
+        # 1. 3 Winterfall E'ko (item 12431) qualifies Winterfall E'ko, NOT Frostmaul
+        inventory[12431] = 3
+        m_wf, r_wf = g.AutoLazy.MatchesRepeatableRequirement("Winterfall E'ko")
+        self.assertTrue(m_wf)
+        self.assertEqual(r_wf.item, 12431)
+        self.assertEqual(r_wf.minCount, 3)
+
+        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement("Frostmaul E'ko"))
+
+        # 2. 2 Winterfall E'ko fails minCount of 3
+        inventory[12431] = 2
+        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement("Winterfall E'ko"))
+
+        # 3. 3 Frostmaul E'ko (item 12436) qualifies Frostmaul E'ko, NOT Winterfall
+        inventory.clear()
+        inventory[12436] = 3
+        m_fm2, r_fm2 = g.AutoLazy.MatchesRepeatableRequirement("Frostmaul E'ko")
+        self.assertTrue(m_fm2)
+        self.assertEqual(r_fm2.item, 12436)
+        self.assertEqual(r_fm2.minCount, 3)
+        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement("Winterfall E'ko"))
+
+        # 4. In ProcessGossip with Mau'ari offering Frostmaul and Winterfall:
+        # Player has 3 Winterfall E'ko -> selects Winterfall E'ko (4802), never Frostmaul
+        inventory.clear()
+        inventory[12431] = 3
+        selected_id = []
+        g.C_GossipInfo.SelectAvailableQuest = lambda qid: selected_id.append(qid)
+        g.C_GossipInfo.GetAvailableQuests = lambda: lua.table_from([
+            lua.table_from({"questID": 4806, "title": "Frostmaul E'ko"}),
+            lua.table_from({"questID": 4802, "title": "Winterfall E'ko"}),
+        ])
+        g.AutoLazy.SetQuestSessionActive(True)
+        res = g.AutoLazy.ProcessGossip()
+        self.assertEqual(res, "ACTION")
+        self.assertEqual(selected_id, [4802])
+
 
 if __name__ == "__main__":
     unittest.main()
