@@ -83,17 +83,26 @@ def create_autolazy_runtime(extra_lua=""):
             GetAvailableQuests = function() return {} end,
             SelectAvailableQuest = function(id) end,
         }
+        LOOT_ROLL_START = "Rolling started on: %s"
         LOOT_ROLL_NEED = "%s has selected Need for: %s"
         LOOT_ROLL_NEED_SELF = "You have selected Need for: %s"
         LOOT_ROLL_GREED = "%s has selected Greed for: %s"
         LOOT_ROLL_GREED_SELF = "You have selected Greed for: %s"
         LOOT_ROLL_PASSED = "%s passed on: %s"
         LOOT_ROLL_PASSED_SELF = "You passed on: %s"
+        LOOT_ROLL_ROLLED = "%s rolls a %d on: %s"
+        LOOT_ROLL_ROLLED_SELF = "You roll a %d on: %s"
         LOOT_ROLL_ROLLED_NEED = "Need Roll - %d for %s by %s"
+        LOOT_ROLL_ROLLED_NEED_SELF = "You roll a %d (Need) on: %s"
         LOOT_ROLL_ROLLED_GREED = "Greed Roll - %d for %s by %s"
+        LOOT_ROLL_ROLLED_GREED_SELF = "You roll a %d (Greed) on: %s"
         LOOT_ROLL_ALL_PASSED = "Everyone passed on: %s"
         LOOT_ROLL_WON = "%s won: %s"
         LOOT_ROLL_YOU_WON = "You won: %s"
+        LOOT_ROLL_WON_NO_SPAM_NEED = "%1$s won: %3$s |cff818181(Need - %2$d)|r"
+        LOOT_ROLL_WON_NO_SPAM_GREED = "%1$s won: %3$s |cff818181(Greed - %2$d)|r"
+        LOOT_ROLL_YOU_WON_NO_SPAM_NEED = "You won: %2$s |cff818181(Need - %1$d)|r"
+        LOOT_ROLL_YOU_WON_NO_SPAM_GREED = "You won: %2$s |cff818181(Greed - %1$d)|r"
     """
     lua.execute(setup + "\n" + extra_lua)
     lua.execute(AUTOLAZY_SOURCE)
@@ -113,6 +122,9 @@ class AutoLazyTests(unittest.TestCase):
         g = lua.globals()
         suppress = g.AutoLazy.ShouldSuppressLootMessage
 
+        # Start roll
+        self.assertTrue(suppress("Rolling started on: [Staff of Jordan]"))
+
         # Need / Greed / Pass selections
         self.assertTrue(suppress("Bob has selected Need for: [Staff of Jordan]"))
         self.assertTrue(suppress("You have selected Need for: [Staff of Jordan]"))
@@ -121,18 +133,28 @@ class AutoLazyTests(unittest.TestCase):
         self.assertTrue(suppress("Alice passed on: [Staff of Jordan]"))
         self.assertTrue(suppress("You passed on: [Staff of Jordan]"))
 
-        # Numeric rolls and summary lines
+        # Intermediate numeric rolls and summary lines
+        self.assertTrue(suppress("Bob rolls a 87 on: [Staff of Jordan]"))
+        self.assertTrue(suppress("You roll a 42 on: [Staff of Jordan]"))
         self.assertTrue(suppress("Need Roll - 88 for [Staff of Jordan] by Bob"))
+        self.assertTrue(suppress("You roll a 88 (Need) on: [Staff of Jordan]"))
         self.assertTrue(suppress("Greed Roll - 45 for [Staff of Jordan] by Charlie"))
+        self.assertTrue(suppress("You roll a 45 (Greed) on: [Staff of Jordan]"))
         self.assertTrue(suppress("Everyone passed on: [Staff of Jordan]"))
 
         # Winner lines are NOT suppressed so native client renders them directly
         self.assertFalse(suppress("Bob won: [Staff of Jordan]"))
         self.assertFalse(suppress("You won: [Staff of Jordan]"))
+        self.assertFalse(suppress("Bob won: [Staff of Jordan] |cff818181(Need - 88)|r"))
+        self.assertFalse(suppress("Bob won: [Staff of Jordan] |cff818181(Greed - 45)|r"))
+        self.assertFalse(suppress("You won: [Staff of Jordan] |cff818181(Need - 88)|r"))
+        self.assertFalse(suppress("You won: [Staff of Jordan] |cff818181(Greed - 45)|r"))
 
         # When CleanRollChat is disabled, intermediate chatter is unsuppressed
         g.AutoLazyDB.CleanRollChat = False
+        self.assertFalse(suppress("Rolling started on: [Staff of Jordan]"))
         self.assertFalse(suppress("Bob has selected Need for: [Staff of Jordan]"))
+        self.assertFalse(suppress("Bob rolls a 87 on: [Staff of Jordan]"))
         self.assertFalse(suppress("Need Roll - 88 for [Staff of Jordan] by Bob"))
 
     def test_03_loot_final_winner_shown_natively(self):
@@ -652,19 +674,44 @@ class AutoLazyTests(unittest.TestCase):
         self.assertEqual(r39_b.questID, 40739)
         self.assertEqual(r39_b.requires[1].count, 3)
 
-        # 5. Wrong questID with identical/similar title -> must NOT match ID-based rule
+        # 5. QUEST_GREETING path (questID is None): exact normalized title fallback
+        # 40739 with 15 bananas + 5 dust matches 40739 rule
+        m_greet39, r_greet39 = g.AutoLazy.MatchesRepeatableRequirement(q40739_title, None)
+        self.assertTrue(m_greet39)
+        self.assertEqual(r_greet39.questID, 40739)
+
+        # 40740 with 15 bananas + 5 dust matches 40740 rule
+        m_greet40, r_greet40 = g.AutoLazy.MatchesRepeatableRequirement(q40740_title, None)
+        self.assertTrue(m_greet40)
+        self.assertEqual(r_greet40.questID, 40740)
+
+        # Wrong questID with identical/similar title -> must NOT match ID-based rule
         self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement(q40739_title, 99999))
         self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement(q40740_title, 99999))
-        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement(q40739_title, None))
+
+        # Generic / partial title without questID must NOT match (no fuzzy alias conflation)
+        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement("Tel'Abim Banana", None))
+        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement("The Tel'Abim Banana", None))
+        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement("tel'abim banana", None))
+        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement("banana", None))
+
+        # QUEST_GREETING with only 3 bananas + 1 dust qualifies 40739 but NOT 40740
+        set_inv(3, 1)
+        self.assertTrue(g.AutoLazy.MatchesRepeatableRequirement(q40739_title, None))
+        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement(q40740_title, None))
 
         # 6. No Dream Dust -> neither qualifies
         set_inv(15, 0)
         self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement(q40739_title, 40739))
         self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement(q40740_title, 40740))
+        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement(q40739_title, None))
+        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement(q40740_title, None))
 
         set_inv(3, 0)
         self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement(q40739_title, 40739))
         self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement(q40740_title, 40740))
+        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement(q40739_title, None))
+        self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement(q40740_title, None))
 
         # 7. Legacy title-based matching works when questID not in rule (e.g. Scourgestones)
         set_inv(0, 0)
@@ -689,6 +736,17 @@ class AutoLazyTests(unittest.TestCase):
         res = g.AutoLazy.ProcessGossip()
         self.assertEqual(res, "ACTION")
         self.assertEqual(selected_id, [40739])
+
+        # 10. ProcessGreeting selects 40739 over 40740 via exact title fallback when only 40739 met
+        set_inv(3, 1)
+        selected_greet_idx = []
+        g.GetNumAvailableQuests = lambda: 2
+        g.GetAvailableTitle = lambda idx: [q40740_title, q40739_title][idx - 1]
+        g.SelectAvailableQuest = lambda idx: selected_greet_idx.append(idx)
+        g.AutoLazy.SetQuestSessionActive(True)
+        res_greet = g.AutoLazy.ProcessGreeting()
+        self.assertEqual(res_greet, "ACTION")
+        self.assertEqual(selected_greet_idx, [2])
 
     def test_clean_roll_chat_gui_checkbox_and_status(self):
         """Clean roll chat syncs to GUI checkbox and reflects in status output."""

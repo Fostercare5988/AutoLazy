@@ -998,17 +998,20 @@ end
 --------------------------------------------------------------------------------
 
 local ROLL_FORMAT_KEYS = {
+    "LOOT_ROLL_START",
     "LOOT_ROLL_NEED",
     "LOOT_ROLL_NEED_SELF",
     "LOOT_ROLL_GREED",
     "LOOT_ROLL_GREED_SELF",
-    "LOOT_ROLL_PASS",
     "LOOT_ROLL_PASSED",
     "LOOT_ROLL_PASSED_SELF",
+    "LOOT_ROLL_ROLLED",
+    "LOOT_ROLL_ROLLED_SELF",
     "LOOT_ROLL_ROLLED_NEED",
+    "LOOT_ROLL_ROLLED_NEED_SELF",
     "LOOT_ROLL_ROLLED_GREED",
+    "LOOT_ROLL_ROLLED_GREED_SELF",
     "LOOT_ROLL_ALL_PASSED",
-    "LOOT_ROLL_PENDING",
 }
 
 local suppressedLootPatterns = nil
@@ -1150,6 +1153,7 @@ local RepeatableTurnIns = {
     -- Quest 40739: "The Tel'Abim Banana Transmutation"
     {
         questID = 40739,
+        questTitle = "the tel'abim banana transmutation",
         requires = {
             { item = 60954, count = 3 },
             { item = 11176, count = 1 },
@@ -1158,6 +1162,7 @@ local RepeatableTurnIns = {
     -- Quest 40740: "Tel'Abim Banana Transmutations!"
     {
         questID = 40740,
+        questTitle = "tel'abim banana transmutations!",
         requires = {
             { item = 60954, count = 15 },
             { item = 11176, count = 5 },
@@ -1217,21 +1222,39 @@ local function GetPlayerItemCount(target)
     return 0
 end
 
+local function NormalizeTitle(title)
+    if not title or type(title) ~= "string" then return nil end
+    local s = string.lower(title)
+    s = string.gsub(s, "^%s+", "")
+    s = string.gsub(s, "%s+$", "")
+    return s ~= "" and s or nil
+end
+
 local function MatchesRepeatableRequirement(title, questID)
     if type(title) == "table" then
         questID = title.questID
         title = title.title
     end
-    local lowerTitle = (title and title ~= "") and string.lower(title) or nil
+    local normTitle = NormalizeTitle(title)
     for _, rep in ipairs(RepeatableTurnIns) do
         local matched = false
-        if rep.questID then
-            if questID and rep.questID == questID then
+        if questID then
+            if rep.questID and rep.questID == questID then
                 matched = true
+            elseif not rep.questID and rep.quest and normTitle then
+                if string.find(normTitle, rep.quest, 1, true) then
+                    matched = true
+                end
             end
-        elseif rep.quest and lowerTitle then
-            if string.find(lowerTitle, rep.quest, 1, true) then
-                matched = true
+        else
+            if rep.questTitle and normTitle then
+                if rep.questTitle == normTitle then
+                    matched = true
+                end
+            elseif not rep.questID and rep.quest and normTitle then
+                if string.find(normTitle, rep.quest, 1, true) then
+                    matched = true
+                end
             end
         end
 
@@ -1728,6 +1751,7 @@ AutoLazy.ProcessGreeting = ProcessGreeting
 AutoLazy.TryQuestChain = TryQuestChain
 AutoLazy.ShouldAutoQuest = ShouldAutoQuest
 AutoLazy.MatchesRepeatableRequirement = MatchesRepeatableRequirement
+AutoLazy.NormalizeTitle = NormalizeTitle
 AutoLazy.MatchesGossipTurnIn = MatchesGossipTurnIn
 AutoLazy.GetPlayerItemCount = GetPlayerItemCount
 AutoLazy.SetQuestSessionActive = function(val) questSessionActive = val end
