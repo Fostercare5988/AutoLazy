@@ -523,9 +523,14 @@ AutoLazy.IsRadioFrame = IsRadioFrame
 AutoLazy.IsLfgFrame = IsLfgFrame
 
 local function SetFrameSuppressed(frame, hide)
-    if not frame then return end
+    if not frame or type(frame) ~= "table" then return end
+    if rawget(frame, 0) ~= nil and type(rawget(frame, 0)) ~= "userdata" then return end
 
-    local fName = (frame.GetName and frame:GetName()) or ""
+    local fName = ""
+    if frame.GetName then
+        local ok, n = pcall(frame.GetName, frame)
+        if ok and type(n) == "string" then fName = n end
+    end
 
     if not frame._alOrigState then
         local numPoints = 0
@@ -574,9 +579,9 @@ local function SetFrameSuppressed(frame, hide)
     end
 
     if hide then
-        if frame.SetAlpha then frame:SetAlpha(0) end
-        if frame.EnableMouse then frame:EnableMouse(false) end
-        frame:Hide()
+        if frame.SetAlpha then pcall(frame.SetAlpha, frame, 0) end
+        if frame.EnableMouse then pcall(frame.EnableMouse, frame, false) end
+        if frame.Hide then pcall(frame.Hide, frame) end
 
         if not frame._alSuppressedHook then
             frame._alSuppressedHook = true
@@ -584,39 +589,34 @@ local function SetFrameSuppressed(frame, hide)
             frame.Show = function(self)
                 local isSuppressed = false
                 if AutoLazyDB and AutoLazyDB.Tweaks then
-                    if IsRadioFrame(self) and AutoLazyDB.Tweaks.HideRadio then isSuppressed = true
-                    elseif IsLfgFrame(self) and AutoLazyDB.Tweaks.HideLfg then isSuppressed = true end
+                    local isRadio = (self == getglobal("EBC_Minimap")) or (fName == "EBC_Minimap") or IsRadioFrame(self)
+                    local isLfg = (self == getglobal("LFTMinimapButton")) or (fName == "LFTMinimapButton") or IsLfgFrame(self)
+                    if (isRadio and AutoLazyDB.Tweaks.HideRadio) or (isLfg and AutoLazyDB.Tweaks.HideLfg) then
+                        isSuppressed = true
+                    end
                 end
                 if isSuppressed then return end
                 if origShow then origShow(self) end
             end
         end
     else
-        if frame.SetAlpha then frame:SetAlpha(frame._alOrigState and frame._alOrigState.alpha or 1) end
-        if frame.EnableMouse then frame:EnableMouse(true) end
+        if frame.SetAlpha then pcall(frame.SetAlpha, frame, 1) end
+        if frame.EnableMouse then pcall(frame.EnableMouse, frame, true) end
 
-        -- Ensure unsuppressed frame is properly anchored to Minimap (not lost at 0,0 / bottom-left)
-        local numPoints = 0
-        if frame.GetNumPoints then
-            local ok, np = pcall(frame.GetNumPoints, frame)
-            if ok and type(np) == "number" then numPoints = np end
-        end
-        local needsRestore = (numPoints == 0)
-        if numPoints > 0 and frame.GetPoint then
+        -- Repair corrupted position if previously stranded at (0, -927) or out of bounds
+        local isCorrupted = false
+        if frame.GetPoint then
             local ok, pt, rt, rp, xo, yo = pcall(frame.GetPoint, frame, 1)
             if ok then
-                if (xo and xo <= -4000) or (yo and yo <= -4000) or not rt or rt == UIParent then
-                    needsRestore = true
+                if (not rt or rt == UIParent) and (xo == 0 or (xo and xo <= -4000)) and (yo == -927 or (yo and yo <= -500)) then
+                    isCorrupted = true
                 end
             end
         end
 
-        if needsRestore then
-            local st = frame._alOrigState
+        if isCorrupted and frame.ClearAllPoints and frame.SetPoint then
             frame:ClearAllPoints()
-            if st and st.relativeTo and st.relativeTo ~= UIParent and st.xOfs > -4000 and st.yOfs > -4000 then
-                frame:SetPoint(st.point, st.relativeTo, st.relativePoint, st.xOfs, st.yOfs)
-            elseif fName == "LFTMinimapButton" or fName == "TW_LFGBtn" or fName == "TWLFG_Minimap" then
+            if fName == "LFTMinimapButton" or fName == "TW_LFGBtn" or fName == "TWLFG_Minimap" then
                 frame:SetPoint("LEFT", Minimap, "LEFT", -22, -14)
             elseif fName == "EBC_Minimap" or fName == "RadioMinimapButton" or fName == "PirateRadioMinimapButton" then
                 frame:SetPoint("TOPLEFT", Minimap, "TOPLEFT", -20, -36)
@@ -625,7 +625,7 @@ local function SetFrameSuppressed(frame, hide)
             end
         end
 
-        frame:Show()
+        if frame.Show then pcall(frame.Show, frame) end
     end
 end
 AutoLazy.SetFrameSuppressed = SetFrameSuppressed
@@ -637,18 +637,16 @@ local trayFrame
 local actionBtn
 
 local KNOWN_RADIO_FRAMES = {
-    "RadioMinimapButton", "PirateRadioMinimapButton", "BBRadioMinimapButton",
-    "BBPR_MinimapButton", "Radio_MinimapButton", "TWRadioMinimapButton",
-    "TW_RadioMinimapButton", "TurtleRadioMinimapButton", "TWBBRadio",
-    "TWBBRadioMinimapButton", "BBRadio_MinimapButton", "BootyBayRadio",
-    "BootyBayRadioMinimapButton", "RadioIcon", "TW_RadioIcon", "RadioBtn", "TW_RadioBtn",
-    "EBC_Minimap", "EBCFrame", "EBCMain", "EBCMinimapDropdown", "OctoRadioMenu",
+    "EBC_Minimap", "PirateRadioMinimapButton", "RadioMinimapButton",
+    "BBRadioMinimapButton", "BBPR_MinimapButton", "Radio_MinimapButton",
+    "TWRadioMinimapButton", "TW_RadioMinimapButton", "TurtleRadioMinimapButton",
+    "TWBBRadioMinimapButton", "BootyBayRadioMinimapButton",
 }
 
 local KNOWN_LFG_FRAMES = {
-    "TW_LFGBtn", "TWLFG_Minimap", "TWLFG_MinimapButton", "LFTMinimapButton",
-    "LFT_MinimapButton", "MiniMapLFGFrame",
-    "LFGMinimapButton", "TurtleLFGMinimapButton", "GroupFinderMinimapButton",
+    "LFTMinimapButton", "LFT_MinimapButton", "TW_LFGBtn", "TWLFG_Minimap",
+    "TWLFG_MinimapButton", "MiniMapLFGFrame", "LFGMinimapButton",
+    "TurtleLFGMinimapButton", "GroupFinderMinimapButton",
 }
 
 function AutoLazy_ApplySystemIconToggles()
@@ -658,16 +656,20 @@ function AutoLazy_ApplySystemIconToggles()
 
     for i = 1, #KNOWN_RADIO_FRAMES do
         local rf = getglobal(KNOWN_RADIO_FRAMES[i])
-        if rf then SetFrameSuppressed(rf, hideRadio) end
+        if rf and type(rf) == "table" and (rawget(rf, 0) == nil or type(rawget(rf, 0)) == "userdata") then
+            SetFrameSuppressed(rf, hideRadio)
+        end
     end
 
     for i = 1, #KNOWN_LFG_FRAMES do
         local lf = getglobal(KNOWN_LFG_FRAMES[i])
-        if lf then SetFrameSuppressed(lf, hideLfg) end
+        if lf and type(lf) == "table" and (rawget(lf, 0) == nil or type(rawget(lf, 0)) == "userdata") then
+            SetFrameSuppressed(lf, hideLfg)
+        end
     end
 
     for _, btn in ipairs(DiscoveredAddonList) do
-        if btn then
+        if btn and type(btn) == "table" and (rawget(btn, 0) == nil or type(rawget(btn, 0)) == "userdata") then
             if IsRadioFrame(btn) then SetFrameSuppressed(btn, hideRadio)
             elseif IsLfgFrame(btn) then SetFrameSuppressed(btn, hideLfg) end
         end
@@ -824,10 +826,16 @@ local EXPLICIT_ADDON_BUTTONS = {
     "RecountMinimapButton", "OmenMinimapButton", "SpellAlertMinimapButton", "NecrosisMinimapButton",
     "TheoryCraftMinimapButton", "HealBotMinimapButton", "CliqueMinimapButton",
     "MailToMinimapButton", "PostalMinimapButton", "CT_MinimapButton", "TitanPanelMinimapButton",
+    "pfMiniMapPin", "ShaguScoreMinimapButton", "TW_CustomShopMinimapButton",
+    "AutoBiSMinimapButton", "LazyPigMinimapButton",
 }
 
 local function RegisterAddonButton(f, isExplicit)
-    if not f or not f.IsObjectType or not f:IsObjectType("Button") then return end
+    if not f or type(f) ~= "table" then return end
+    if rawget(f, 0) ~= nil and type(rawget(f, 0)) ~= "userdata" then return end
+    if not f.IsObjectType then return end
+    local okObj, isBtn = pcall(f.IsObjectType, f, "Button")
+    if not okObj or not isBtn then return end
     -- Radio and LFG frames have dedicated system toggles and are NEVER 3rd-party user addons in the tray
     if IsRadioFrame(f) or IsLfgFrame(f) then return end
     if not isExplicit and not IsValidAddonButton(f) then return end
@@ -878,8 +886,15 @@ local function ScanChildrenForAddons(...)
     local count = select("#", ...)
     for i = 1, count do
         local child = select(i, ...)
-        if child and child.IsObjectType and child:IsObjectType("Button") then
-            RegisterAddonButton(child, false)
+        if child and type(child) == "table" and (rawget(child, 0) == nil or type(rawget(child, 0)) == "userdata") then
+            local isBtn = false
+            if child.IsObjectType then
+                local ok, res = pcall(child.IsObjectType, child, "Button")
+                if ok and res then isBtn = true end
+            end
+            if isBtn then
+                RegisterAddonButton(child, false)
+            end
         end
     end
 end
@@ -887,17 +902,23 @@ end
 function AutoLazy_FindAddonButtons()
     for _, kName in ipairs(EXPLICIT_ADDON_BUTTONS) do
         local f = getglobal(kName)
-        if f and HasRenderableVisual(f) and not IsRadioFrame(f) and not IsLfgFrame(f) then
-            RegisterAddonButton(f, true)
+        if f and type(f) == "table" and (rawget(f, 0) == nil or type(rawget(f, 0)) == "userdata") then
+            if HasRenderableVisual(f) and not IsRadioFrame(f) and not IsLfgFrame(f) then
+                RegisterAddonButton(f, true)
+            end
         end
     end
 
-    if Minimap and Minimap.GetChildren then ScanChildrenForAddons(Minimap:GetChildren()) end
+    if Minimap and Minimap.GetChildren then
+        pcall(function() ScanChildrenForAddons(Minimap:GetChildren()) end)
+    end
 
     table_wipe(ActiveButtonList)
     for _, btn in ipairs(DiscoveredAddonList) do
-        if HasRenderableVisual(btn) and not IsRadioFrame(btn) and not IsLfgFrame(btn) then
-            table_insert(ActiveButtonList, btn)
+        if btn and type(btn) == "table" and (rawget(btn, 0) == nil or type(rawget(btn, 0)) == "userdata") then
+            if HasRenderableVisual(btn) and not IsRadioFrame(btn) and not IsLfgFrame(btn) then
+                table_insert(ActiveButtonList, btn)
+            end
         end
     end
     return ActiveButtonList
@@ -1644,8 +1665,8 @@ local function ProcessGreeting()
 end
 
 local function DelayedStartupSync()
-    AutoLazy_ApplySystemIconToggles()
-    if AutoLazy_CollapseAddons then AutoLazy_CollapseAddons() end
+    pcall(AutoLazy_ApplySystemIconToggles)
+    if AutoLazy_CollapseAddons then pcall(AutoLazy_CollapseAddons) end
 end
 
 local function TryQuestChain(token)
@@ -1704,15 +1725,17 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
         HookChatFrameEvents()
         UpdateZoneCache()
         AutoLazy_UpdateActionButton()
-        AutoLazy_ApplySystemIconToggles()
+        pcall(AutoLazy_ApplySystemIconToggles)
 
     elseif ev == "PLAYER_ENTERING_WORLD" then
         UpdateZoneCache()
-        AutoLazy_ApplySystemIconToggles()
+        pcall(AutoLazy_ApplySystemIconToggles)
 
         -- Native C++ Hardware Timers (Zero OnUpdate startup bloat, safe post-world sync)
-        C_Timer.After(1.0, DelayedStartupSync)
-        C_Timer.After(2.5, DelayedStartupSync)
+        if C_Timer and C_Timer.After then
+            C_Timer.After(1.0, DelayedStartupSync)
+            C_Timer.After(2.5, DelayedStartupSync)
+        end
 
     elseif ev == "ZONE_CHANGED_NEW_AREA" or ev == "ZONE_CHANGED" then
         UpdateZoneCache()
