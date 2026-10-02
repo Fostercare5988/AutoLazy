@@ -526,13 +526,20 @@ local function SetFrameSuppressed(frame, hide)
     local name = frame.GetName and frame:GetName()
 
     if not frame._alOrigState then
-        local numPoints = (frame.GetNumPoints and frame:GetNumPoints()) or 0
+        local numPoints = 0
+        if frame.GetNumPoints then
+            local ok, np = pcall(frame.GetNumPoints, frame)
+            if ok and type(np) == "number" then numPoints = np end
+        end
         local point, relTo, relPoint, xOfs, yOfs = nil, nil, nil, 0, 0
         if numPoints > 0 and frame.GetPoint then
-            point, relTo, relPoint, xOfs, yOfs = frame:GetPoint(1)
+            local ok, pt, rt, rp, xo, yo = pcall(frame.GetPoint, frame, 1)
+            if ok then
+                point, relTo, relPoint, xOfs, yOfs = pt, rt, rp, xo, yo
+            end
         end
 
-        local origParent = frame:GetParent()
+        local origParent = frame.GetParent and frame:GetParent()
         if origParent == trayFrame or (origParent and origParent.GetName and origParent:GetName() == "AutoLazy_ButtonTray") then
             origParent = Minimap
         end
@@ -568,6 +575,12 @@ local function SetFrameSuppressed(frame, hide)
             end
         end
 
+        local origAlpha = 1
+        if frame.GetAlpha then
+            local ok, a = pcall(frame.GetAlpha, frame)
+            if ok and type(a) == "number" then origAlpha = a end
+        end
+
         frame._alOrigState = {
             parent = origParent,
             point = origPoint,
@@ -575,7 +588,7 @@ local function SetFrameSuppressed(frame, hide)
             relativePoint = origRelPoint,
             xOfs = xOfs or 0,
             yOfs = yOfs or 0,
-            alpha = (frame.GetAlpha and frame:GetAlpha()) or 1,
+            alpha = origAlpha,
         }
     end
 
@@ -748,36 +761,40 @@ local function HasMinimapBorder(f)
 end
 
 local function IsAnchoredToMinimap(f)
-    if not f or not f.GetNumPoints or f:GetNumPoints() == 0 or not f.GetPoint then return false end
-    local point, relTo = f:GetPoint(1)
+    if not f or not f.GetNumPoints or not f.GetPoint then return false end
+    local ok, num = pcall(f.GetNumPoints, f)
+    if not ok or not num or num == 0 then return false end
+    local ok2, point, relTo = pcall(f.GetPoint, f, 1)
+    if not ok2 or not relTo then return false end
     if relTo == Minimap or relTo == MinimapBackdrop or relTo == MinimapCluster then return true end
-    if relTo and relTo.GetName then
-        local n = relTo:GetName()
-        if n == "Minimap" or n == "MinimapBackdrop" or n == "MinimapCluster" then return true end
+    if relTo.GetName then
+        local ok3, n = pcall(relTo.GetName, relTo)
+        if ok3 and (n == "Minimap" or n == "MinimapBackdrop" or n == "MinimapCluster") then return true end
     end
     return false
 end
 
 local function IsValidAddonButton(f)
-    if not f or not f:IsObjectType("Button") then return false end
+    if not f or not f.IsObjectType or not f:IsObjectType("Button") then return false end
     local name = f.GetName and f:GetName()
-    if name then
-        if BlizzardCoreFrames[name] or string_find(name, "AutoLazy") then return false end
-        local lower = string_lower(name)
-        if string_find(lower, "zonetext") or string_find(lower, "toggle") or
-           string_find(lower, "border") or string_find(lower, "backdrop") or
-           string_find(lower, "cluster") or string_find(lower, "close") or
-           string_find(lower, "play") or string_find(lower, "targetframe") then
-            return false
-        end
+    -- Safety: Addon minimap buttons in 1.12 MUST be named. Unnamed buttons are internal scratch/tooltip widgets.
+    if not name or name == "" then return false end
 
-        -- Keyword filtering ONLY for frames that do NOT explicitly identify as minimap buttons
-        if not string_find(lower, "minimap") then
-            if string_find(lower, "aura") or string_find(lower, "buff") or string_find(lower, "debuff") or
-               string_find(lower, "cooldown") or string_find(lower, "combat") or string_find(lower, "action") or
-               string_find(lower, "spell") or string_find(lower, "condition") then
-                return false
-            end
+    if BlizzardCoreFrames[name] or string_find(name, "AutoLazy") then return false end
+    local lower = string_lower(name)
+    if string_find(lower, "zonetext") or string_find(lower, "toggle") or
+       string_find(lower, "border") or string_find(lower, "backdrop") or
+       string_find(lower, "cluster") or string_find(lower, "close") or
+       string_find(lower, "play") or string_find(lower, "targetframe") then
+        return false
+    end
+
+    -- Keyword filtering ONLY for frames that do NOT explicitly identify as minimap buttons
+    if not string_find(lower, "minimap") then
+        if string_find(lower, "aura") or string_find(lower, "buff") or string_find(lower, "debuff") or
+           string_find(lower, "cooldown") or string_find(lower, "combat") or string_find(lower, "action") or
+           string_find(lower, "spell") or string_find(lower, "condition") then
+            return false
         end
     end
 
@@ -785,13 +802,19 @@ local function IsValidAddonButton(f)
     if IsRadioFrame(f) or IsLfgFrame(f) then return false end
 
     -- Size verification: Standard 1.12 minimap icons are 16x16 to 54x54
-    local w, h = f:GetWidth(), f:GetHeight()
-    if w and h and w > 0 and h > 0 then
+    local w, h = 0, 0
+    if f.GetWidth and f.GetHeight then
+        local okW, curW = pcall(f.GetWidth, f)
+        local okH, curH = pcall(f.GetHeight, f)
+        if okW and type(curW) == "number" then w = curW end
+        if okH and type(curH) == "number" then h = curH end
+    end
+    if w > 0 and h > 0 then
         if w > 54 or h > 54 or w < 16 or h < 16 then return false end
     end
 
     -- If parented to UIParent (not directly to Minimap or tray), verify it's anchored or designed for minimap
-    local parent = f:GetParent()
+    local parent = f.GetParent and f:GetParent()
     if parent == UIParent or (parent and parent.GetName and parent:GetName() == "UIParent") then
         local isMinimapNamed = name and string_find(string_lower(name), "minimap")
         local isAnchored = IsAnchoredToMinimap(f)
@@ -830,7 +853,7 @@ local EXPLICIT_ADDON_BUTTONS = {
 }
 
 local function RegisterAddonButton(f, isExplicit)
-    if not f or not f:IsObjectType("Button") then return end
+    if not f or not f.IsObjectType or not f:IsObjectType("Button") then return end
     -- Radio and LFG frames have dedicated system toggles and are NEVER 3rd-party user addons in the tray
     if IsRadioFrame(f) or IsLfgFrame(f) then return end
     if not isExplicit and not IsValidAddonButton(f) then return end
@@ -838,11 +861,20 @@ local function RegisterAddonButton(f, isExplicit)
     if not DiscoveredAddonSet[f] then
         DiscoveredAddonSet[f] = true
         if not f._alOrigState then
-            local numPoints = (f.GetNumPoints and f:GetNumPoints()) or 0
+            local numPoints = 0
+            if f.GetNumPoints then
+                local ok, np = pcall(f.GetNumPoints, f)
+                if ok and type(np) == "number" then numPoints = np end
+            end
             local point, relTo, relPoint, xOfs, yOfs = nil, nil, nil, 0, 0
-            if numPoints > 0 and f.GetPoint then point, relTo, relPoint, xOfs, yOfs = f:GetPoint(1) end
+            if numPoints > 0 and f.GetPoint then
+                local ok, pt, rt, rp, xo, yo = pcall(f.GetPoint, f, 1)
+                if ok then
+                    point, relTo, relPoint, xOfs, yOfs = pt, rt, rp, xo, yo
+                end
+            end
 
-            local origParent = f:GetParent()
+            local origParent = f.GetParent and f:GetParent()
             if origParent == trayFrame or (origParent and origParent.GetName and origParent:GetName() == "AutoLazy_ButtonTray") then
                 origParent = Minimap
             end
@@ -853,10 +885,15 @@ local function RegisterAddonButton(f, isExplicit)
 
             local origPoint = point or "CENTER"
             local origRelPoint = relPoint or origPoint
+            local origAlpha = 1
+            if f.GetAlpha then
+                local ok, a = pcall(f.GetAlpha, f)
+                if ok and type(a) == "number" then origAlpha = a end
+            end
             f._alOrigState = {
                 parent = origParent, point = origPoint,
                 relativeTo = origRelTo, relativePoint = origRelPoint,
-                xOfs = xOfs or 0, yOfs = yOfs or 0, alpha = (f.GetAlpha and f:GetAlpha()) or 1,
+                xOfs = xOfs or 0, yOfs = yOfs or 0, alpha = origAlpha,
             }
         end
         table_insert(DiscoveredAddonList, f)
@@ -867,7 +904,7 @@ local function ScanChildrenForAddons(...)
     local count = select("#", ...)
     for i = 1, count do
         local child = select(i, ...)
-        if child and child:IsObjectType("Button") then
+        if child and child.IsObjectType and child:IsObjectType("Button") then
             RegisterAddonButton(child, false)
         end
     end
@@ -885,7 +922,6 @@ function AutoLazy_FindAddonButtons()
     if MinimapBackdrop and MinimapBackdrop.GetChildren then ScanChildrenForAddons(MinimapBackdrop:GetChildren()) end
     if MinimapCluster and MinimapCluster.GetChildren then ScanChildrenForAddons(MinimapCluster:GetChildren()) end
     if trayFrame and trayFrame.GetChildren then ScanChildrenForAddons(trayFrame:GetChildren()) end
-    if UIParent and UIParent.GetChildren then ScanChildrenForAddons(UIParent:GetChildren()) end
 
     table_wipe(ActiveButtonList)
     for _, btn in ipairs(DiscoveredAddonList) do
@@ -1699,16 +1735,17 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
         UpdateZoneCache()
         AutoLazy_UpdateActionButton()
         AutoLazy_ApplySystemIconToggles()
-        AutoLazy_CollapseAddons()
 
-        -- Native C++ Hardware Timers (Zero OnUpdate startup bloat)
+    elseif ev == "PLAYER_ENTERING_WORLD" then
+        UpdateZoneCache()
+        AutoLazy_ApplySystemIconToggles()
+
+        -- Native C++ Hardware Timers (Zero OnUpdate startup bloat, safe post-world sync)
         C_Timer.After(1.0, DelayedStartupSync)
         C_Timer.After(2.5, DelayedStartupSync)
 
-    elseif ev == "PLAYER_ENTERING_WORLD" or ev == "ZONE_CHANGED_NEW_AREA" or ev == "ZONE_CHANGED" then
+    elseif ev == "ZONE_CHANGED_NEW_AREA" or ev == "ZONE_CHANGED" then
         UpdateZoneCache()
-        AutoLazy_ApplySystemIconToggles()
-        AutoLazy_CollapseAddons()
 
     elseif ev == "START_LOOT_ROLL" then
         if not AutoLazyDB or not AutoLazyDB.Enabled or not CachedDungeonKey then

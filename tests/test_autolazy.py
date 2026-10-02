@@ -1153,6 +1153,51 @@ class AutoLazyTests(unittest.TestCase):
         first_btn_name = lua.eval("buttons[1]:GetName()")
         self.assertEqual(first_btn_name, "MyGuildAddonMinimapButton")
 
+    def test_unnamed_and_dangling_frames_safe_against_crash(self):
+        """Unnamed buttons and dangling anchor throws are rejected and protected against Error 132 crashes."""
+        lua = create_autolazy_runtime(r"""
+            -- Button with no name (unnamed scratch widget)
+            unnamed_btn = CreateFrame("Button", nil, UIParent)
+            unnamed_btn.GetWidth = function() return 32 end
+            unnamed_btn.GetHeight = function() return 32 end
+            unnamed_btn.GetPoint = function() error("dangling anchor C++ fault simulated") end
+            unnamed_btn.GetNumPoints = function() return 1 end
+
+            -- Button whose GetPoint throws an error
+            throwing_btn = CreateFrame("Button", "BuggyAddonMinimapButton", Minimap)
+            throwing_btn.GetWidth = function() return 32 end
+            throwing_btn.GetHeight = function() return 32 end
+            throwing_btn.GetPoint = function() error("Simulated dangling anchor fault") end
+            throwing_btn.GetNumPoints = function() error("Simulated vtable null fault") end
+            throwing_btn.GetNormalTexture = function() return { GetTexture = function() return "Interface\\Icons\\INV_Misc_QuestionMark" end } end
+
+            -- Button on UIParent (must NOT be scanned via UIParent:GetChildren)
+            uiparent_child = CreateFrame("Button", "UIParentRandomChildButton", UIParent)
+            uiparent_child.GetWidth = function() return 32 end
+            uiparent_child.GetHeight = function() return 32 end
+            uiparent_child.GetNormalTexture = function() return { GetTexture = function() return "Interface\\Icons\\INV_Misc_QuestionMark" end } end
+
+            uiparent_scanned = false
+            UIParent.GetChildren = function()
+                uiparent_scanned = true
+                return uiparent_child
+            end
+            Minimap.GetChildren = function() return throwing_btn end
+        """)
+        lua.execute(AUTOLAZY_SOURCE)
+
+        res = lua.execute(r"""
+            local v_unnamed = AutoLazy.IsValidAddonButton(unnamed_btn)
+            local v_anchored_throw = AutoLazy.IsAnchoredToMinimap(throwing_btn)
+            local buttons = AutoLazy_FindAddonButtons()
+            return v_unnamed, v_anchored_throw, uiparent_scanned, #buttons
+        """)
+        v_unnamed, v_anchored_throw, uiparent_scanned, btn_count = res
+
+        self.assertFalse(v_unnamed, "Unnamed button must be rejected immediately to avoid scratch frame vtable dereference")
+        self.assertFalse(v_anchored_throw, "Throwing GetPoint/GetNumPoints must be caught safely by pcall")
+        self.assertFalse(uiparent_scanned, "UIParent:GetChildren must NEVER be scanned during button discovery")
+
 
 if __name__ == "__main__":
     unittest.main()
