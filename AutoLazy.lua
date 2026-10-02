@@ -525,6 +525,8 @@ AutoLazy.IsLfgFrame = IsLfgFrame
 local function SetFrameSuppressed(frame, hide)
     if not frame then return end
 
+    local fName = (frame.GetName and frame:GetName()) or ""
+
     if not frame._alOrigState then
         local numPoints = 0
         if frame.GetNumPoints then
@@ -537,11 +539,27 @@ local function SetFrameSuppressed(frame, hide)
             if ok then point, relTo, relPoint, xOfs, yOfs = pt, rt, rp, xo, yo end
         end
 
-        local origParent = frame.GetParent and frame:GetParent() or Minimap
+        local origParent = (frame.GetParent and frame:GetParent()) or Minimap
         local origAlpha = 1
         if frame.GetAlpha then
             local ok, a = pcall(frame.GetAlpha, frame)
             if ok and type(a) == "number" then origAlpha = a end
+        end
+
+        if (xOfs and xOfs <= -4000) or (yOfs and yOfs <= -4000) or numPoints == 0 then
+            if fName == "LFTMinimapButton" then
+                point = "LEFT"
+                relTo = Minimap
+                relPoint = "LEFT"
+                xOfs = -22
+                yOfs = -14
+            elseif fName == "EBC_Minimap" then
+                point = "TOPLEFT"
+                relTo = Minimap
+                relPoint = "TOPLEFT"
+                xOfs = -20
+                yOfs = -36
+            end
         end
 
         frame._alOrigState = {
@@ -574,11 +592,44 @@ local function SetFrameSuppressed(frame, hide)
             end
         end
     else
-        if frame._alSuppressedHook then
-            if frame.SetAlpha then frame:SetAlpha(frame._alOrigState.alpha or 1) end
-            if frame.EnableMouse then frame:EnableMouse(true) end
-            frame:Show()
+        if frame.SetAlpha then frame:SetAlpha(frame._alOrigState and frame._alOrigState.alpha or 1) end
+        if frame.EnableMouse then frame:EnableMouse(true) end
+
+        -- Ensure unsuppressed frame is properly anchored to Minimap (not lost at 0,0 / bottom-left)
+        local numPoints = 0
+        if frame.GetNumPoints then
+            local ok, np = pcall(frame.GetNumPoints, frame)
+            if ok and type(np) == "number" then numPoints = np end
         end
+        local needsRestore = (numPoints == 0)
+        if numPoints > 0 and frame.GetPoint then
+            local ok, pt, rt, rp, xo, yo = pcall(frame.GetPoint, frame, 1)
+            if ok then
+                if (xo and xo <= -4000) or (yo and yo <= -4000) or not rt or rt == UIParent then
+                    needsRestore = true
+                end
+            end
+        end
+
+        if needsRestore then
+            local st = frame._alOrigState
+            frame:ClearAllPoints()
+            if st and st.relativeTo and st.relativeTo ~= UIParent and st.xOfs > -4000 and st.yOfs > -4000 then
+                if st.parent and frame.SetParent then frame:SetParent(st.parent) end
+                frame:SetPoint(st.point, st.relativeTo, st.relativePoint, st.xOfs, st.yOfs)
+            elseif fName == "LFTMinimapButton" or fName == "TW_LFGBtn" or fName == "TWLFG_Minimap" then
+                if frame.SetParent then frame:SetParent(Minimap) end
+                frame:SetPoint("LEFT", Minimap, "LEFT", -22, -14)
+            elseif fName == "EBC_Minimap" or fName == "RadioMinimapButton" or fName == "PirateRadioMinimapButton" then
+                if frame.SetParent then frame:SetParent(Minimap) end
+                frame:SetPoint("TOPLEFT", Minimap, "TOPLEFT", -20, -36)
+            else
+                if frame.SetParent then frame:SetParent(Minimap) end
+                frame:SetPoint("CENTER", Minimap, "CENTER", 0, 0)
+            end
+        end
+
+        frame:Show()
     end
 end
 AutoLazy.SetFrameSuppressed = SetFrameSuppressed

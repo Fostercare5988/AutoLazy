@@ -150,18 +150,14 @@ btnTab3:SetScript("OnClick", function() ShowTab(3) end)
 -- TAB 1: TWEAKS (SYSTEM BLOAT & ADDON TRAY)
 --------------------------------------------------
 local secTweaksTitle = tabTweaks:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-secTweaksTitle:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 36, -104)
+secTweaksTitle:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 36, -108)
 secTweaksTitle:SetText("|cFFFFD100System Toggles & Addon Tray|r")
 
 local secTweaksDesc = tabTweaks:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-secTweaksDesc:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 36, -124)
-secTweaksDesc:SetText("Manage system icons, suppress bloat, and configure your draggable Addon Tray.")
+secTweaksDesc:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 36, -130)
+secTweaksDesc:SetText("Clean up your minimap, hide system bloat, and manage your Addon Tray.")
 
--- Section 1: AutoLazy Floating Button
-local secHubTitle = tabTweaks:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-secHubTitle:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 36, -150)
-secHubTitle:SetText("|cFFFFD100AutoLazy Floating Button|r")
-
+-- Row 1: AutoLazy Floating Button
 local cbShowBtn = CreateCheckbox("AutoLazy_ToggleShowBtn", "Show AutoLazy Button", "Show or hide the floating AutoLazy button on your screen.", tabTweaks, "TOPLEFT", tabTweaks, "TOPLEFT", 36, -170, function(btn)
     if AutoLazyDB then
         AutoLazyDB.ShowButton = (btn:GetChecked() == 1 or btn:GetChecked() == true)
@@ -171,41 +167,16 @@ end)
 tweakWidgets["ShowButton"] = cbShowBtn
 
 local btnResetBtnPos = CreateFrame("Button", "AutoLazy_BtnResetBtnPos", tabTweaks, "UIPanelButtonTemplate")
-btnResetBtnPos:SetWidth(185)
+btnResetBtnPos:SetWidth(150)
 btnResetBtnPos:SetHeight(22)
-btnResetBtnPos:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 250, -170)
-btnResetBtnPos:SetText("Reset Button Position")
+btnResetBtnPos:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 270, -170)
+btnResetBtnPos:SetText("Reset Position")
 btnResetBtnPos:SetScript("OnClick", function()
     if AutoLazy_ResetActionButtonPos then AutoLazy_ResetActionButtonPos() end
 end)
 
--- Section 2: Hide System Bloat (Radio & LFG)
-local secBloatTitle = tabTweaks:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-secBloatTitle:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 36, -206)
-secBloatTitle:SetText("|cFFFFD100Hide Built-in System Bloat (Radio & LFG)|r")
-
-local cbHideRadio = CreateCheckbox("AutoLazy_ToggleHideRadio", "|cFFFF8080Hide Pirate Radio|r", "Hides the Booty Bay Pirate Radio button from the minimap.", tabTweaks, "TOPLEFT", tabTweaks, "TOPLEFT", 36, -226, function(btn)
-    if AutoLazyDB and AutoLazyDB.Tweaks then
-        AutoLazyDB.Tweaks.HideRadio = (btn:GetChecked() == 1 or btn:GetChecked() == true)
-        if AutoLazy_ApplySystemIconToggles then AutoLazy_ApplySystemIconToggles() end
-    end
-end)
-tweakWidgets["HideRadio"] = cbHideRadio
-
-local cbHideLfg = CreateCheckbox("AutoLazy_ToggleHideLfg", "|cFFFF8080Hide Group Finder (LFG)|r", "Hides the in-game Group Finder / LFT eye button from the minimap.", tabTweaks, "TOPLEFT", tabTweaks, "TOPLEFT", 250, -226, function(btn)
-    if AutoLazyDB and AutoLazyDB.Tweaks then
-        AutoLazyDB.Tweaks.HideLfg = (btn:GetChecked() == 1 or btn:GetChecked() == true)
-        if AutoLazy_ApplySystemIconToggles then AutoLazy_ApplySystemIconToggles() end
-    end
-end)
-tweakWidgets["HideLfg"] = cbHideLfg
-
--- Section 3: Addon Tray & Minimap Collapse
-local secTrayTitle = tabTweaks:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-secTrayTitle:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 36, -262)
-secTrayTitle:SetText("|cFFFFD100Addon Tray & Minimap Collapse|r")
-
-local cbCollapse = CreateCheckbox("AutoLazy_ToggleCollapse", "|cFF00FF00Collapse Addons into Tray|r", "Automatically collapses all addon minimap buttons into the tray on login to keep your minimap 100% clean.", tabTweaks, "TOPLEFT", tabTweaks, "TOPLEFT", 36, -282, function(btn)
+-- Row 2: Addon Tray & Minimap Collapse
+local cbCollapse = CreateCheckbox("AutoLazy_ToggleCollapse", "|cFF00FF00Collapse Addons into Tray|r", "Automatically collapses all addon minimap buttons into the tray on login to keep your minimap 100% clean.", tabTweaks, "TOPLEFT", tabTweaks, "TOPLEFT", 36, -215, function(btn)
     if AutoLazyDB and AutoLazyDB.Tweaks then
         AutoLazyDB.Tweaks.CollapseAddons = (btn:GetChecked() == 1 or btn:GetChecked() == true)
         if AutoLazy_CollapseAddons then AutoLazy_CollapseAddons(AutoLazyDB.Tweaks.CollapseAddons) end
@@ -214,17 +185,34 @@ end)
 tweakWidgets["CollapseAddons"] = cbCollapse
 
 local btnOpenTray = CreateFrame("Button", "AutoLazy_BtnOpenTray", tabTweaks, "UIPanelButtonTemplate")
-btnOpenTray:SetWidth(185)
+btnOpenTray:SetWidth(150)
 btnOpenTray:SetHeight(22)
-btnOpenTray:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 250, -282)
+btnOpenTray:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 270, -215)
 btnOpenTray:SetText("Toggle Addon Tray")
 btnOpenTray:SetScript("OnClick", function()
     if AutoLazy_ToggleTray then AutoLazy_ToggleTray() end
 end)
 
--- Helpful Control Hints
+-- Row 3: Hide System Bloat (Radio & LFG)
+local cbHideRadio = CreateCheckbox("AutoLazy_ToggleHideRadio", "|cFFFF8080Hide Pirate Radio|r", "Hides the Booty Bay Pirate Radio button from the minimap.", tabTweaks, "TOPLEFT", tabTweaks, "TOPLEFT", 36, -265, function(btn)
+    if AutoLazyDB and AutoLazyDB.Tweaks then
+        AutoLazyDB.Tweaks.HideRadio = (btn:GetChecked() == 1 or btn:GetChecked() == true)
+        if AutoLazy_ApplySystemIconToggles then AutoLazy_ApplySystemIconToggles() end
+    end
+end)
+tweakWidgets["HideRadio"] = cbHideRadio
+
+local cbHideLfg = CreateCheckbox("AutoLazy_ToggleHideLfg", "|cFFFF8080Hide Group Finder (LFG)|r", "Hides the in-game Group Finder / LFT eye button from the minimap.", tabTweaks, "TOPLEFT", tabTweaks, "TOPLEFT", 270, -265, function(btn)
+    if AutoLazyDB and AutoLazyDB.Tweaks then
+        AutoLazyDB.Tweaks.HideLfg = (btn:GetChecked() == 1 or btn:GetChecked() == true)
+        if AutoLazy_ApplySystemIconToggles then AutoLazy_ApplySystemIconToggles() end
+    end
+end)
+tweakWidgets["HideLfg"] = cbHideLfg
+
+-- Helpful Control Hints (Positioned cleanly at bottom above dialog actions)
 local tweakTip = tabTweaks:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-tweakTip:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 36, -320)
+tweakTip:SetPoint("BOTTOMLEFT", tabTweaks, "BOTTOMLEFT", 36, 62)
 tweakTip:SetPoint("RIGHT", tabTweaks, "RIGHT", -36, 0)
 tweakTip:SetJustifyH("LEFT")
 tweakTip:SetText("|cFF888888AutoLazy Button Controls:\n  • |cFFFFD100Left-Click:|r Open / Close Addon Tray\n  • |cFFFFD100Right-Click:|r Open AutoLazy Options\n  • |cFF00FF00Click & Drag:|r Move button anywhere on screen|r")
