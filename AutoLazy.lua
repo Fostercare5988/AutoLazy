@@ -250,28 +250,6 @@ end
 local actionBtn = nil
 local trayFrame = nil
 
-local function GetDefaultItemRule(ruleKey)
-    local def = defaultDB.ItemRules[ruleKey]
-    if not def then return "MANUAL" end
-    -- If it's a Naxxramas wartorn scrap, set intelligent default based on player's armor class
-    if string_find(ruleKey, "wartorn") and UnitClass then
-        local _, pClass = UnitClass("player")
-        if pClass then
-            if pClass == "WARRIOR" or pClass == "PALADIN" then
-                return (ruleKey == "wartorn plate scrap") and "NEED" or "MANUAL"
-            elseif pClass == "ROGUE" or pClass == "DRUID" then
-                return (ruleKey == "wartorn leather scrap") and "NEED" or "MANUAL"
-            elseif pClass == "HUNTER" or pClass == "SHAMAN" then
-                return (ruleKey == "wartorn chain scrap") and "NEED" or "MANUAL"
-            elseif pClass == "MAGE" or pClass == "PRIEST" or pClass == "WARLOCK" then
-                return (ruleKey == "wartorn cloth scrap") and "NEED" or "MANUAL"
-            end
-        end
-    end
-    return def
-end
-AutoLazy.GetDefaultItemRule = GetDefaultItemRule
-
 local function InitDB()
     if not AutoLazyDB then AutoLazyDB = {} end
 
@@ -315,7 +293,7 @@ local function InitDB()
                 end
             end
             if action ~= "MANUAL" and action ~= "NEED" and action ~= "GREED" and action ~= "PASS" then
-                action = GetDefaultItemRule(ruleKey)
+                action = defaultDB.ItemRules[ruleKey]
             end
             AutoLazyDB.ItemRules[ruleKey] = action
         end

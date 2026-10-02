@@ -1153,42 +1153,6 @@ class AutoLazyTests(unittest.TestCase):
         first_btn_name = lua.eval("buttons[1]:GetName()")
         self.assertEqual(first_btn_name, "MyGuildAddonMinimapButton")
 
-    def test_class_aware_default_wartorn_scrap_rules(self):
-        """Wartorn scraps automatically default to NEED for the player's class armor type, and MANUAL for others."""
-        lua = create_autolazy_runtime()
-        g = lua.globals()
-
-        # Case 1: Warrior -> Plate NEED, others MANUAL
-        g.UnitClass = lambda unit: ("Warrior", "WARRIOR")
-        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn plate scrap"), "NEED")
-        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn cloth scrap"), "MANUAL")
-        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn leather scrap"), "MANUAL")
-        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn chain scrap"), "MANUAL")
-
-        # Case 2: Mage -> Cloth NEED, others MANUAL
-        g.UnitClass = lambda unit: ("Mage", "MAGE")
-        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn cloth scrap"), "NEED")
-        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn plate scrap"), "MANUAL")
-        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn leather scrap"), "MANUAL")
-        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn chain scrap"), "MANUAL")
-
-        # Case 3: Rogue -> Leather NEED, others MANUAL
-        g.UnitClass = lambda unit: ("Rogue", "ROGUE")
-        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn leather scrap"), "NEED")
-        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn cloth scrap"), "MANUAL")
-        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn plate scrap"), "MANUAL")
-
-        # Case 4: Hunter -> Chain NEED, others MANUAL
-        g.UnitClass = lambda unit: ("Hunter", "HUNTER")
-        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn chain scrap"), "NEED")
-        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn leather scrap"), "MANUAL")
-
-        # Case 5: Non-scrap items keep standard global defaults
-        self.assertEqual(g.AutoLazy.GetDefaultItemRule("corrupted sand"), "NEED")
-        self.assertEqual(g.AutoLazy.GetDefaultItemRule("zg bijous"), "NEED")
-        self.assertEqual(g.AutoLazy.GetDefaultItemRule("zg coins"), "NEED")
-        self.assertEqual(g.AutoLazy.GetDefaultItemRule("aq20 idols"), "MANUAL")
-
 
 if __name__ == "__main__":
     unittest.main()

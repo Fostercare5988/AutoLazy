@@ -30,7 +30,7 @@ Configure automated rolling in `/al` > **Loot**:
 - **Supported Farm Items**:
   - **Zul'Gurub**: Hakkari Bijous and Tribal Coins.
   - **Ruins of Ahn'Qiraj (AQ20)**: Scarabs and Idols.
-  - **Naxxramas**: Wartorn Cloth, Leather, Chain, and Plate Scraps (Intelligently defaults to **Need** for your class's armor type and **Manual** for other armor types, preventing accidental guild loot drama while remaining 100% customizable).
+  - **Naxxramas**: Wartorn Cloth, Leather, Chain, and Plate Scraps.
   - **The Black Morass**: Corrupted Sand.
 - **Global Toggle**: Check **Auto-roll listed items** to enable or pause automation. Unlisted items (gear, weapons, boes) are never rolled automatically by AutoLazy.
 - **Clean Group Loot Presentation**: Toggleable via `/al clean` or the **Clean Roll Chat** checkbox in Tab 2 (enabled by default). Suppresses intermediate Need/Greed/Pass notifications, roll numbers, and all-pass clutter during group loot rolls, presenting only a single final winner line with a clickable item link. Non-roll loot (corpse looting, direct item acquisition, and money) remains fully visible.
