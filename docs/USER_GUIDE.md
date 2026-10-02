@@ -19,7 +19,7 @@ Detailed configuration, loot automation, and quest chaining reference for **Auto
 
 ## 2. Dungeon Loot Automation
 
-Configure automated rolling in `/al` > **Loot & Dungeons**:
+Configure automated rolling in `/al` > **Loot**:
 - **Per-Item Roll Actions**: For each supported farm item, choose exactly one action:
   - **Need**: Automatically rolls Need.
   - **Greed**: Automatically rolls Greed.

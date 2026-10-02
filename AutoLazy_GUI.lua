@@ -107,15 +107,15 @@ btnTab1:SetPoint("TOPLEFT", panel, "TOPLEFT", 25, -68)
 btnTab1:SetText("Tweaks")
 
 local btnTab2 = CreateFrame("Button", "AutoLazy_BtnTab2", panel, "UIPanelButtonTemplate")
-btnTab2:SetWidth(150)
+btnTab2:SetWidth(130)
 btnTab2:SetHeight(22)
 btnTab2:SetPoint("TOPLEFT", panel, "TOPLEFT", 165, -68)
-btnTab2:SetText("Loot & Dungeons")
+btnTab2:SetText("Loot")
 
 local btnTab3 = CreateFrame("Button", "AutoLazy_BtnTab3", panel, "UIPanelButtonTemplate")
-btnTab3:SetWidth(150)
+btnTab3:SetWidth(160)
 btnTab3:SetHeight(22)
-btnTab3:SetPoint("TOPLEFT", panel, "TOPLEFT", 325, -68)
+btnTab3:SetPoint("TOPLEFT", panel, "TOPLEFT", 305, -68)
 btnTab3:SetText("Quest Automation")
 
 local function ShowTab(tabIndex)
@@ -184,7 +184,7 @@ local secBloatTitle = tabTweaks:CreateFontString(nil, "ARTWORK", "GameFontNormal
 secBloatTitle:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 36, -206)
 secBloatTitle:SetText("|cFFFFD100Hide Built-in System Bloat (Radio & LFG)|r")
 
-local cbHideRadio = CreateCheckbox("AutoLazy_ToggleHideRadio", "|cFFFF8080Hide Pirate Radio|r", "Permanently hides the Booty Bay Pirate Radio button, stations, mute, and all broadcasting towers.", tabTweaks, "TOPLEFT", tabTweaks, "TOPLEFT", 36, -226, function(btn)
+local cbHideRadio = CreateCheckbox("AutoLazy_ToggleHideRadio", "|cFFFF8080Hide Pirate Radio|r", "Hides the Booty Bay Pirate Radio button from the minimap.", tabTweaks, "TOPLEFT", tabTweaks, "TOPLEFT", 36, -226, function(btn)
     if AutoLazyDB and AutoLazyDB.Tweaks then
         AutoLazyDB.Tweaks.HideRadio = (btn:GetChecked() == 1 or btn:GetChecked() == true)
         if AutoLazy_ApplySystemIconToggles then AutoLazy_ApplySystemIconToggles() end
@@ -192,7 +192,7 @@ local cbHideRadio = CreateCheckbox("AutoLazy_ToggleHideRadio", "|cFFFF8080Hide P
 end)
 tweakWidgets["HideRadio"] = cbHideRadio
 
-local cbHideLfg = CreateCheckbox("AutoLazy_ToggleHideLfg", "|cFFFF8080Hide Group Finder (LFG)|r", "Permanently hides the TurtleWoW Group Finder / Meeting Stone eye button.", tabTweaks, "TOPLEFT", tabTweaks, "TOPLEFT", 250, -226, function(btn)
+local cbHideLfg = CreateCheckbox("AutoLazy_ToggleHideLfg", "|cFFFF8080Hide Group Finder (LFG)|r", "Hides the in-game Group Finder / LFT eye button from the minimap.", tabTweaks, "TOPLEFT", tabTweaks, "TOPLEFT", 250, -226, function(btn)
     if AutoLazyDB and AutoLazyDB.Tweaks then
         AutoLazyDB.Tweaks.HideLfg = (btn:GetChecked() == 1 or btn:GetChecked() == true)
         if AutoLazy_ApplySystemIconToggles then AutoLazy_ApplySystemIconToggles() end

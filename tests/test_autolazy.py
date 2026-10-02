@@ -47,6 +47,8 @@ def create_autolazy_runtime(extra_lua=""):
                 scripts = {},
                 SetScript = function(self, scr, handler) self.scripts[scr] = handler end,
                 RegisterEvent = function(self, ev) end,
+                GetName = function(self) return self.name end,
+                GetParent = function(self) return self.parent end,
                 IsObjectType = function(self, t) return true end,
                 IsShown = function(self) return false end,
                 Show = function(self) end,
@@ -68,6 +70,8 @@ def create_autolazy_runtime(extra_lua=""):
                 EnableMouse = function(self, e) end,
                 RegisterForDrag = function(self, ...) end,
                 RegisterForClicks = function(self, ...) end,
+                SetAlpha = function(self, a) self.alpha = a end,
+                GetAlpha = function(self) return self.alpha or 1 end,
                 CreateFontString = function(self) return { SetPoint = function() end, SetText = function() end, SetJustifyH = function() end } end,
                 CreateTexture = function(self) return { SetPoint = function() end, SetTexture = function() end, SetWidth = function() end, SetHeight = function() end } end,
             }
@@ -956,6 +960,84 @@ class AutoLazyTests(unittest.TestCase):
         inventory[50203] = 1
         self.assertFalse(g.AutoLazy.MatchesGossipTurnIn("Sand in Bulk"))
         self.assertTrue(g.AutoLazy.MatchesGossipTurnIn("Purify Corrupted Sand"))
+
+    def test_menu_tab_renamed_to_loot(self):
+        """Part 1: Menu Tab 2 is named 'Loot' (not 'Loot & Dungeons')."""
+        self.assertIn('btnTab2:SetText("Loot")', AUTOLAZY_GUI_SOURCE)
+        self.assertNotIn('btnTab2:SetText("Loot & Dungeons")', AUTOLAZY_GUI_SOURCE)
+
+    def test_octowow_pirate_radio_and_lft_buttons_handling(self):
+        """Part 2: EBC_Minimap and LFTMinimapButton are correctly classified and excluded from Addon Tray."""
+        lua = create_autolazy_runtime(r"""
+            ebc = CreateFrame("Button", "EBC_Minimap", Minimap)
+            ebc.point = "TOPLEFT"
+            ebc.xOfs = -20
+            ebc.yOfs = -36
+            ebc.GetPoint = function(self, idx) return self.point, Minimap, nil, self.xOfs, self.yOfs end
+            ebc.GetNumPoints = function(self) return 1 end
+            ebc.GetParent = function(self) return Minimap end
+            ebc.GetWidth = function(self) return 33 end
+            ebc.GetHeight = function(self) return 33 end
+            ebc.GetRegions = function(self)
+                return {
+                    GetTexture = function() return "Interface\\Icons\\INV_Gizmo_GoblinBoomBox_01" end,
+                    GetObjectType = function() return "Texture" end,
+                }
+            end
+
+            lft = CreateFrame("Button", "LFTMinimapButton", Minimap)
+            lft.point = "LEFT"
+            lft.xOfs = -22
+            lft.yOfs = -14
+            lft.GetPoint = function(self, idx) return self.point, Minimap, nil, self.xOfs, self.yOfs end
+            lft.GetNumPoints = function(self) return 1 end
+            lft.GetParent = function(self) return Minimap end
+            lft.GetWidth = function(self) return 33 end
+            lft.GetHeight = function(self) return 33 end
+            lft.GetRegions = function(self)
+                return {
+                    GetTexture = function() return "Interface\\FrameXML\\LFT\\images\\eye\\battlenetworking0" end,
+                    GetObjectType = function() return "Texture" end,
+                }
+            end
+        """)
+        lua.execute(AUTOLAZY_SOURCE)
+
+        res = lua.execute(r"""
+            local isRadio = AutoLazy.IsRadioFrame(ebc)
+            local isLfg = AutoLazy.IsLfgFrame(lft)
+            local validEbc = AutoLazy.IsValidAddonButton(ebc)
+            local validLft = AutoLazy.IsValidAddonButton(lft)
+            return isRadio, isLfg, validEbc, validLft
+        """)
+        isRadio, isLfg, validEbc, validLft = res
+        self.assertTrue(isRadio, "EBC_Minimap must be recognized by IsRadioFrame")
+        self.assertTrue(isLfg, "LFTMinimapButton must be recognized by IsLfgFrame")
+        self.assertFalse(validEbc, "EBC_Minimap must NOT be treated as a generic addon button")
+        self.assertFalse(validLft, "LFTMinimapButton must NOT be treated as a generic addon button")
+
+        lua.execute(r"""
+            AutoLazyDB.Tweaks.HideRadio = true
+            AutoLazyDB.Tweaks.HideLfg = true
+            AutoLazy.SetFrameSuppressed(ebc, true)
+            AutoLazy.SetFrameSuppressed(lft, true)
+
+            AutoLazyDB.Tweaks.HideRadio = false
+            AutoLazyDB.Tweaks.HideLfg = false
+            AutoLazy.SetFrameSuppressed(ebc, false)
+            AutoLazy.SetFrameSuppressed(lft, false)
+        """)
+        st_ebc = lua.eval("ebc._alOrigState")
+        st_lft = lua.eval("lft._alOrigState")
+        self.assertEqual(st_ebc["point"], "TOPLEFT")
+        self.assertEqual(st_ebc["relativePoint"], "TOPLEFT")
+        self.assertEqual(st_ebc["xOfs"], -20)
+        self.assertEqual(st_ebc["yOfs"], -36)
+
+        self.assertEqual(st_lft["point"], "LEFT")
+        self.assertEqual(st_lft["relativePoint"], "LEFT")
+        self.assertEqual(st_lft["xOfs"], -22)
+        self.assertEqual(st_lft["yOfs"], -14)
 
 
 if __name__ == "__main__":
