@@ -433,9 +433,10 @@ end
 --------------------------------------------------
 local BlizzardCoreFrames = {
     ["Minimap"] = true, ["MinimapBackdrop"] = true, ["MinimapCluster"] = true,
-    ["MiniMapTrackingFrame"] = true, ["MiniMapTracking"] = true, ["MiniMapTrackingBorder"] = true,
+    ["MiniMapTrackingFrame"] = true, ["MiniMapTracking"] = true, ["MiniMapTrackingBorder"] = true, ["MiniMapTrackingIcon"] = true,
+    ["MiniMapMeetingStoneFrame"] = true, ["MiniMapMeetingStoneIcon"] = true,
     ["MiniMapMailFrame"] = true, ["MiniMapMailIcon"] = true, ["MiniMapMailBorder"] = true,
-    ["MiniMapBattlefieldFrame"] = true, ["MiniMapBattlefieldIcon"] = true, ["MiniMapBattlefieldBorder"] = true,
+    ["MiniMapBattlefieldFrame"] = true, ["MiniMapBattlefieldIcon"] = true, ["MiniMapBattlefieldBorder"] = true, ["MiniMapBattlefieldDropDown"] = true,
     ["MinimapZoomIn"] = true, ["MinimapZoomOut"] = true, ["GameTimeFrame"] = true,
     ["MiniMapPing"] = true, ["MinimapZoneTextButton"] = true, ["MinimapZoneText"] = true,
     ["MinimapToggleButton"] = true, ["MinimapToggle"] = true, ["MinimapBorderTop"] = true,
@@ -443,13 +444,14 @@ local BlizzardCoreFrames = {
     ["TicketStatusFrame"] = true, ["TicketStatusFrameButton"] = true, ["WorldStateFrame"] = true,
     ["AutoLazy_ActionBtn"] = true, ["AutoLazy_ButtonTray"] = true,
     ["AutoLazy_OptionsFrame"] = true, ["UIParent"] = true,
+    ["FCTweaksMinimapClock"] = true, ["MinimapClock"] = true,
 }
 
 local RADIO_NAMES = { "radio", "bbpr", "pirate", "bbradio", "tune", "station", "broadcast", "ebc", "octoradio" }
-local RADIO_TEX   = { "radio", "pirate", "bbpr", "bbradio", "inv_helmet_66", "ability_rogue_disguise", "inv_misc_bandana", "inv_gizmo_goblinboombox_01", "bbpricon" }
+local RADIO_TEX   = { "radio", "bbpr", "bbradio", "inv_gizmo_goblinboombox_01", "bbpricon" }
 local RADIO_TEXT  = { "radio", "pirate", "tune in", "tune out", "booty bay", "station" }
-local LFG_NAMES   = { "tw_lfg", "twlfg", "meetingstone", "groupfinder", "lfgminimap", "lftminimap", "lft" }
-local LFG_TEX     = { "lfg", "lft", "meetingstone", "eye", "battlenetworking" }
+local LFG_NAMES   = { "tw_lfg", "twlfg", "groupfinder", "lfgminimap", "lftminimap", "lft" }
+local LFG_TEX     = { "lfg", "lft", "battlenetworking" }
 
 local function InspectRegionsIter(texKeywords, textKeywords, ...)
     local count = select("#", ...)
@@ -523,8 +525,6 @@ AutoLazy.IsLfgFrame = IsLfgFrame
 local function SetFrameSuppressed(frame, hide)
     if not frame then return end
 
-    local name = frame.GetName and frame:GetName()
-
     if not frame._alOrigState then
         local numPoints = 0
         if frame.GetNumPoints then
@@ -534,47 +534,10 @@ local function SetFrameSuppressed(frame, hide)
         local point, relTo, relPoint, xOfs, yOfs = nil, nil, nil, 0, 0
         if numPoints > 0 and frame.GetPoint then
             local ok, pt, rt, rp, xo, yo = pcall(frame.GetPoint, frame, 1)
-            if ok then
-                point, relTo, relPoint, xOfs, yOfs = pt, rt, rp, xo, yo
-            end
+            if ok then point, relTo, relPoint, xOfs, yOfs = pt, rt, rp, xo, yo end
         end
 
-        local origParent = frame.GetParent and frame:GetParent()
-        if origParent == trayFrame or (origParent and origParent.GetName and origParent:GetName() == "AutoLazy_ButtonTray") then
-            origParent = Minimap
-        end
-
-        local origRelTo = relTo or origParent or Minimap
-        if origRelTo == trayFrame or (origRelTo and origRelTo.GetName and origRelTo:GetName() == "AutoLazy_ButtonTray") then
-            origRelTo = Minimap
-        end
-
-        local origPoint = point or "CENTER"
-        local origRelPoint = relPoint or origPoint
-
-        -- Protect against capturing an already suppressed / offscreen coordinate
-        if (xOfs and xOfs <= -4000) or (yOfs and yOfs <= -4000) then
-            if name == "LFTMinimapButton" then
-                origPoint = "LEFT"
-                origRelTo = Minimap
-                origRelPoint = "LEFT"
-                xOfs = -22
-                yOfs = -14
-            elseif name == "EBC_Minimap" then
-                origPoint = "TOPLEFT"
-                origRelTo = Minimap
-                origRelPoint = "TOPLEFT"
-                xOfs = -20
-                yOfs = -36
-            else
-                origPoint = "CENTER"
-                origRelTo = Minimap
-                origRelPoint = "CENTER"
-                xOfs = 0
-                yOfs = 0
-            end
-        end
-
+        local origParent = frame.GetParent and frame:GetParent() or Minimap
         local origAlpha = 1
         if frame.GetAlpha then
             local ok, a = pcall(frame.GetAlpha, frame)
@@ -583,9 +546,9 @@ local function SetFrameSuppressed(frame, hide)
 
         frame._alOrigState = {
             parent = origParent,
-            point = origPoint,
-            relativeTo = origRelTo,
-            relativePoint = origRelPoint,
+            point = point or "CENTER",
+            relativeTo = relTo or origParent or Minimap,
+            relativePoint = relPoint or point or "CENTER",
             xOfs = xOfs or 0,
             yOfs = yOfs or 0,
             alpha = origAlpha,
@@ -596,8 +559,6 @@ local function SetFrameSuppressed(frame, hide)
         if frame.SetAlpha then frame:SetAlpha(0) end
         if frame.EnableMouse then frame:EnableMouse(false) end
         frame:Hide()
-        frame:ClearAllPoints()
-        frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -5000, -5000)
 
         if not frame._alSuppressedHook then
             frame._alSuppressedHook = true
@@ -613,23 +574,11 @@ local function SetFrameSuppressed(frame, hide)
             end
         end
     else
-        local st = frame._alOrigState
-        if st then
-            if st.parent and frame.SetParent then frame:SetParent(st.parent) end
-            frame:ClearAllPoints()
-            if st.relativeTo then
-                frame:SetPoint(st.point, st.relativeTo, st.relativePoint, st.xOfs, st.yOfs)
-            else
-                frame:SetPoint("CENTER", Minimap, "CENTER", 0, 0)
-            end
-            if frame.SetAlpha then frame:SetAlpha(st.alpha or 1) end
-        else
-            frame:ClearAllPoints()
-            frame:SetPoint("CENTER", Minimap, "CENTER", 0, 0)
-            if frame.SetAlpha then frame:SetAlpha(1) end
+        if frame._alSuppressedHook then
+            if frame.SetAlpha then frame:SetAlpha(frame._alOrigState.alpha or 1) end
+            if frame.EnableMouse then frame:EnableMouse(true) end
+            frame:Show()
         end
-        if frame.EnableMouse then frame:EnableMouse(true) end
-        frame:Show()
     end
 end
 AutoLazy.SetFrameSuppressed = SetFrameSuppressed
@@ -651,7 +600,7 @@ local KNOWN_RADIO_FRAMES = {
 
 local KNOWN_LFG_FRAMES = {
     "TW_LFGBtn", "TWLFG_Minimap", "TWLFG_MinimapButton", "LFTMinimapButton",
-    "LFT_MinimapButton", "MiniMapMeetingStoneFrame", "MiniMapLFGFrame",
+    "LFT_MinimapButton", "MiniMapLFGFrame",
     "LFGMinimapButton", "TurtleLFGMinimapButton", "GroupFinderMinimapButton",
 }
 
@@ -659,9 +608,9 @@ local function ScanChildrenForBloat(hideRadio, hideLfg, ...)
     local count = select("#", ...)
     for i = 1, count do
         local child = select(i, ...)
-        if child then
+        if child and child.GetName then
             local cName = child:GetName() or ""
-            if not BlizzardCoreFrames[cName] then
+            if cName ~= "" and not BlizzardCoreFrames[cName] then
                 if IsRadioFrame(child) then
                     SetFrameSuppressed(child, hideRadio)
                 elseif IsLfgFrame(child) then
@@ -688,8 +637,6 @@ function AutoLazy_ApplySystemIconToggles()
     end
 
     if Minimap and Minimap.GetChildren then ScanChildrenForBloat(hideRadio, hideLfg, Minimap:GetChildren()) end
-    if MinimapBackdrop and MinimapBackdrop.GetChildren then ScanChildrenForBloat(hideRadio, hideLfg, MinimapBackdrop:GetChildren()) end
-    if MinimapCluster and MinimapCluster.GetChildren then ScanChildrenForBloat(hideRadio, hideLfg, MinimapCluster:GetChildren()) end
     if trayFrame and trayFrame.GetChildren then ScanChildrenForBloat(hideRadio, hideLfg, trayFrame:GetChildren()) end
 
     for _, btn in ipairs(DiscoveredAddonList) do
@@ -919,8 +866,6 @@ function AutoLazy_FindAddonButtons()
     end
 
     if Minimap and Minimap.GetChildren then ScanChildrenForAddons(Minimap:GetChildren()) end
-    if MinimapBackdrop and MinimapBackdrop.GetChildren then ScanChildrenForAddons(MinimapBackdrop:GetChildren()) end
-    if MinimapCluster and MinimapCluster.GetChildren then ScanChildrenForAddons(MinimapCluster:GetChildren()) end
     if trayFrame and trayFrame.GetChildren then ScanChildrenForAddons(trayFrame:GetChildren()) end
 
     table_wipe(ActiveButtonList)
