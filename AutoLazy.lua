@@ -603,25 +603,27 @@ local function SetFrameSuppressed(frame, hide)
         if frame.SetAlpha then pcall(frame.SetAlpha, frame, 1) end
         if frame.EnableMouse then pcall(frame.EnableMouse, frame, true) end
 
-        -- Repair corrupted position if previously stranded at (0, -927) or out of bounds
-        local isCorrupted = false
-        if frame.GetPoint then
-            local ok, pt, rt, rp, xo, yo = pcall(frame.GetPoint, frame, 1)
-            if ok then
-                if (not rt or rt == UIParent) and (xo == 0 or (xo and xo <= -4000)) and (yo == -927 or (yo and yo <= -500)) then
-                    isCorrupted = true
+        if frame.ClearAllPoints and frame.SetPoint then
+            frame:ClearAllPoints()
+            local restored = false
+            if frame._alOrigState and frame._alOrigState.relativeTo then
+                local rel = frame._alOrigState.relativeTo
+                local x = frame._alOrigState.xOfs or 0
+                local y = frame._alOrigState.yOfs or 0
+                -- Verify it's not a corrupted bottom-left / off-screen point
+                if not ((rel == UIParent or (rel and rel.GetName and rel:GetName() == "UIParent")) and math.abs(x) < 50 and math.abs(y) < 50) and x > -4000 and y > -4000 then
+                    frame:SetPoint(frame._alOrigState.point or "CENTER", rel, frame._alOrigState.relativePoint or "CENTER", x, y)
+                    restored = true
                 end
             end
-        end
-
-        if isCorrupted and frame.ClearAllPoints and frame.SetPoint then
-            frame:ClearAllPoints()
-            if fName == "LFTMinimapButton" or fName == "TW_LFGBtn" or fName == "TWLFG_Minimap" then
-                frame:SetPoint("LEFT", Minimap, "LEFT", -22, -14)
-            elseif fName == "EBC_Minimap" or fName == "RadioMinimapButton" or fName == "PirateRadioMinimapButton" then
-                frame:SetPoint("TOPLEFT", Minimap, "TOPLEFT", -20, -36)
-            else
-                frame:SetPoint("CENTER", Minimap, "CENTER", 0, 0)
+            if not restored then
+                if fName == "LFTMinimapButton" or fName == "TW_LFGBtn" or fName == "TWLFG_Minimap" then
+                    frame:SetPoint("LEFT", Minimap, "LEFT", -22, -14)
+                elseif fName == "EBC_Minimap" or fName == "RadioMinimapButton" or fName == "PirateRadioMinimapButton" then
+                    frame:SetPoint("TOPLEFT", Minimap, "TOPLEFT", -20, -36)
+                else
+                    frame:SetPoint("CENTER", Minimap, "CENTER", 0, 0)
+                end
             end
         end
 
@@ -872,10 +874,13 @@ local function RegisterAddonButton(f, isExplicit)
                 local ok, a = pcall(f.GetAlpha, f)
                 if ok and type(a) == "number" then origAlpha = a end
             end
+            local origStrata = (f.GetFrameStrata and f:GetFrameStrata()) or "MEDIUM"
+            local origLevel = (f.GetFrameLevel and f:GetFrameLevel()) or 5
             f._alOrigState = {
                 parent = origParent, point = origPoint,
                 relativeTo = origRelTo, relativePoint = origRelPoint,
                 xOfs = xOfs or 0, yOfs = yOfs or 0, alpha = origAlpha,
+                strata = origStrata, level = origLevel,
             }
         end
         table_insert(DiscoveredAddonList, f)
@@ -968,6 +973,16 @@ function AutoLazy_CloseTray()
             AutoLazy_CollapseAddons(false)
         else
             for _, btn in ipairs(DiscoveredAddonList) do
+                if btn and btn._alOrigState then
+                    btn:ClearAllPoints()
+                    if btn._alOrigState.relativeTo then
+                        btn:SetPoint(btn._alOrigState.point, btn._alOrigState.relativeTo, btn._alOrigState.relativePoint, btn._alOrigState.xOfs, btn._alOrigState.yOfs)
+                    else
+                        btn:SetPoint("CENTER", Minimap, "CENTER", 0, 0)
+                    end
+                    if btn._alOrigState.strata and btn.SetFrameStrata then btn:SetFrameStrata(btn._alOrigState.strata) end
+                    if btn._alOrigState.level and btn.SetFrameLevel then btn:SetFrameLevel(btn._alOrigState.level) end
+                end
                 if btn and btn.Hide then btn:Hide() end
             end
         end
@@ -1065,8 +1080,11 @@ function AutoLazy_CollapseAddons(enable)
                 else
                     btn:SetPoint("CENTER", Minimap, "CENTER", 0, 0)
                 end
-                btn:SetAlpha(btn._alOrigState.alpha or 1)
-                btn:Show()
+                if btn._alOrigState.strata and btn.SetFrameStrata then btn:SetFrameStrata(btn._alOrigState.strata) end
+                if btn._alOrigState.level and btn.SetFrameLevel then btn:SetFrameLevel(btn._alOrigState.level) end
+                if btn.SetAlpha then btn:SetAlpha(btn._alOrigState.alpha or 1) end
+                if btn.EnableMouse then btn:EnableMouse(true) end
+                if btn.Show then btn:Show() end
             end
         end
         if trayFrame:IsShown() then trayFrame:Hide() end
