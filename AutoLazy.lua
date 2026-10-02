@@ -615,16 +615,12 @@ local function SetFrameSuppressed(frame, hide)
             local st = frame._alOrigState
             frame:ClearAllPoints()
             if st and st.relativeTo and st.relativeTo ~= UIParent and st.xOfs > -4000 and st.yOfs > -4000 then
-                if st.parent and frame.SetParent then frame:SetParent(st.parent) end
                 frame:SetPoint(st.point, st.relativeTo, st.relativePoint, st.xOfs, st.yOfs)
             elseif fName == "LFTMinimapButton" or fName == "TW_LFGBtn" or fName == "TWLFG_Minimap" then
-                if frame.SetParent then frame:SetParent(Minimap) end
                 frame:SetPoint("LEFT", Minimap, "LEFT", -22, -14)
             elseif fName == "EBC_Minimap" or fName == "RadioMinimapButton" or fName == "PirateRadioMinimapButton" then
-                if frame.SetParent then frame:SetParent(Minimap) end
                 frame:SetPoint("TOPLEFT", Minimap, "TOPLEFT", -20, -36)
             else
-                if frame.SetParent then frame:SetParent(Minimap) end
                 frame:SetPoint("CENTER", Minimap, "CENTER", 0, 0)
             end
         end
@@ -655,23 +651,6 @@ local KNOWN_LFG_FRAMES = {
     "LFGMinimapButton", "TurtleLFGMinimapButton", "GroupFinderMinimapButton",
 }
 
-local function ScanChildrenForBloat(hideRadio, hideLfg, ...)
-    local count = select("#", ...)
-    for i = 1, count do
-        local child = select(i, ...)
-        if child and child.GetName then
-            local cName = child:GetName() or ""
-            if cName ~= "" and not BlizzardCoreFrames[cName] then
-                if IsRadioFrame(child) then
-                    SetFrameSuppressed(child, hideRadio)
-                elseif IsLfgFrame(child) then
-                    SetFrameSuppressed(child, hideLfg)
-                end
-            end
-        end
-    end
-end
-
 function AutoLazy_ApplySystemIconToggles()
     if not AutoLazyDB or not AutoLazyDB.Tweaks then return end
     local hideRadio = (AutoLazyDB.Tweaks.HideRadio == true)
@@ -686,9 +665,6 @@ function AutoLazy_ApplySystemIconToggles()
         local lf = getglobal(KNOWN_LFG_FRAMES[i])
         if lf then SetFrameSuppressed(lf, hideLfg) end
     end
-
-    if Minimap and Minimap.GetChildren then ScanChildrenForBloat(hideRadio, hideLfg, Minimap:GetChildren()) end
-    if trayFrame and trayFrame.GetChildren then ScanChildrenForBloat(hideRadio, hideLfg, trayFrame:GetChildren()) end
 
     for _, btn in ipairs(DiscoveredAddonList) do
         if btn then
@@ -917,7 +893,6 @@ function AutoLazy_FindAddonButtons()
     end
 
     if Minimap and Minimap.GetChildren then ScanChildrenForAddons(Minimap:GetChildren()) end
-    if trayFrame and trayFrame.GetChildren then ScanChildrenForAddons(trayFrame:GetChildren()) end
 
     table_wipe(ActiveButtonList)
     for _, btn in ipairs(DiscoveredAddonList) do
@@ -1006,8 +981,8 @@ function AutoLazy_OpenTray()
         local y = -(topMargin + row * (iconSize + pad))
 
         btn:ClearAllPoints()
-        btn:SetParent(trayFrame)
         btn:SetFrameStrata("HIGH")
+        btn:SetFrameLevel(trayFrame:GetFrameLevel() + 2)
         btn:SetPoint("TOPLEFT", trayFrame, "TOPLEFT", x, y)
         btn:SetAlpha(1)
         btn:Show()
@@ -1033,7 +1008,6 @@ function AutoLazy_CollapseAddons(enable)
     else
         for _, btn in ipairs(DiscoveredAddonList) do
             if btn and btn._alOrigState then
-                if btn._alOrigState.parent and btn.SetParent then btn:SetParent(btn._alOrigState.parent) end
                 btn:ClearAllPoints()
                 if btn._alOrigState.relativeTo then
                     btn:SetPoint(btn._alOrigState.point, btn._alOrigState.relativeTo, btn._alOrigState.relativePoint, btn._alOrigState.xOfs, btn._alOrigState.yOfs)
