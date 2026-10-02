@@ -571,6 +571,32 @@ class AutoLazyTests(unittest.TestCase):
         self.assertTrue(g.testBtnState.shown)
         self.assertFalse(g.AutoLazy_ButtonTray.isShown)
 
+    def test_tray_full_interactivity_and_dismisser(self):
+        """Addon Tray enables mouse on buttons and dismisser closes tray."""
+        lua = create_autolazy_runtime(r"""
+            testBtn = CreateFrame("Button", "AtlasLootMinimapButton", Minimap)
+            testBtn.GetWidth = function() return 32 end
+            testBtn.GetHeight = function() return 32 end
+            testBtn.GetNormalTexture = function() return { GetTexture = function() return "Interface\\Icons\\INV_Box_01" end } end
+        """)
+        g = lua.globals()
+        lua.execute(AUTOLAZY_SOURCE)
+        lua.execute(r"""
+            AutoLazy_TrayDismisser.Show = function(self) self.isShown = true end
+            AutoLazy_TrayDismisser.Hide = function(self) self.isShown = false end
+            AutoLazy_TrayDismisser.IsShown = function(self) return self.isShown == true end
+            AutoLazy_ButtonTray.Show = function(self) self.isShown = true end
+            AutoLazy_ButtonTray.Hide = function(self) self.isShown = false end
+            AutoLazy_ButtonTray.IsShown = function(self) return self.isShown == true end
+
+            AutoLazy_OpenTray()
+            dismisserShown = AutoLazy_TrayDismisser:IsShown()
+            AutoLazy_TrayDismisser.scripts.OnClick()
+            trayHiddenAfterClick = not AutoLazy_ButtonTray:IsShown()
+        """)
+        self.assertTrue(g.dismisserShown, "Dismisser must show when tray opens")
+        self.assertTrue(g.trayHiddenAfterClick, "Clicking dismisser must close tray")
+
     def test_gossip_turn_in_keywords_and_bijous(self):
         """Direct gossip turn-ins match exact item IDs including ZG bijou destruction."""
         extra = """

@@ -927,18 +927,31 @@ end
 --------------------------------------------------
 -- AUTOLAZY FLOATING BUTTON & ADDON TRAY
 --------------------------------------------------
+local trayDismisser = CreateFrame("Button", "AutoLazy_TrayDismisser", UIParent)
+if trayDismisser.SetFrameStrata then trayDismisser:SetFrameStrata("DIALOG") end
+if trayDismisser.SetFrameLevel then trayDismisser:SetFrameLevel(80) end
+if trayDismisser.SetAllPoints then trayDismisser:SetAllPoints(UIParent) end
+if trayDismisser.EnableMouse then trayDismisser:EnableMouse(true) end
+if trayDismisser.RegisterForClicks then trayDismisser:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
+if trayDismisser.SetScript then
+    trayDismisser:SetScript("OnClick", function()
+        AutoLazy_CloseTray()
+    end)
+end
+if trayDismisser.Hide then trayDismisser:Hide() end
+
 trayFrame = CreateFrame("Frame", "AutoLazy_ButtonTray", UIParent)
-trayFrame:SetFrameStrata("HIGH")
-trayFrame:SetToplevel(true)
-trayFrame:EnableMouse(true)
+if trayFrame.SetFrameStrata then trayFrame:SetFrameStrata("DIALOG") end
+if trayFrame.SetFrameLevel then trayFrame:SetFrameLevel(90) end
+if trayFrame.EnableMouse then trayFrame:EnableMouse(false) end
 trayFrame:SetBackdrop({
     bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    tile = true, tileSize = 16, edgeSize = 16,
-    insets = { left = 5, right = 5, top = 5, bottom = 5 }
+    tile = true, tileSize = 16, edgeSize = 12,
+    insets = { left = 3, right = 3, top = 3, bottom = 3 }
 })
-trayFrame:SetBackdropColor(0.08, 0.08, 0.12, 0.94)
-trayFrame:SetBackdropBorderColor(0.85, 0.70, 0.20, 0.90)
+trayFrame:SetBackdropColor(0.06, 0.06, 0.08, 0.90)
+trayFrame:SetBackdropBorderColor(0.35, 0.35, 0.40, 0.85)
 trayFrame:Hide()
 
 -- Allow dismissing with ESC key
@@ -947,19 +960,16 @@ trayFrame:SetScript("OnHide", function()
     AutoLazy_CloseTray()
 end)
 
-local trayTitle = trayFrame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-trayTitle:SetPoint("TOP", trayFrame, "TOP", 0, -8)
-trayTitle:SetText("|cFFFFD100Addons|r")
-
 function AutoLazy_CloseTray()
+    trayDismisser:Hide()
     if trayFrame:IsShown() then
+        trayFrame:Hide()
         if AutoLazyDB and AutoLazyDB.Tweaks and AutoLazyDB.Tweaks.CollapseAddons == false then
             AutoLazy_CollapseAddons(false)
         else
             for _, btn in ipairs(DiscoveredAddonList) do
                 if btn and btn.Hide then btn:Hide() end
             end
-            trayFrame:Hide()
         end
     end
 end
@@ -979,36 +989,56 @@ function AutoLazy_OpenTray()
     if cols < 2 then cols = 2 end
     local rows = math.ceil(count / cols)
 
-    local iconSize, pad, marginX, topMargin, botMargin = 32, 8, 12, 28, 14
+    local iconSize, pad, marginX, marginY = 31, 4, 5, 5
     local trayW = marginX * 2 + cols * iconSize + (cols - 1) * pad
-    local trayH = topMargin + botMargin + rows * iconSize + (rows - 1) * pad
+    local trayH = marginY * 2 + rows * iconSize + (rows - 1) * pad
 
     trayFrame:SetWidth(trayW)
     trayFrame:SetHeight(trayH)
 
-    local btnX = actionBtn:GetCenter()
-    local screenW = UIParent:GetWidth()
-    trayFrame:ClearAllPoints()
-    if btnX and btnX > (screenW / 2) then
-        trayFrame:SetPoint("TOPRIGHT", actionBtn, "BOTTOMLEFT", -6, 6)
-    else
-        trayFrame:SetPoint("TOPLEFT", actionBtn, "BOTTOMRIGHT", 6, 6)
+    local btnX, btnY = nil, nil
+    if actionBtn.GetCenter then
+        local ok, cx, cy = pcall(actionBtn.GetCenter, actionBtn)
+        if ok then btnX, btnY = cx, cy end
     end
+    local screenW = (UIParent.GetWidth and UIParent:GetWidth()) or 1920
+    local screenH = (UIParent.GetHeight and UIParent:GetHeight()) or 1080
+    trayFrame:ClearAllPoints()
+    if btnX and btnY then
+        if btnX > (screenW / 2) then
+            if btnY > (screenH / 2) then
+                trayFrame:SetPoint("TOPRIGHT", actionBtn, "BOTTOMRIGHT", 0, -4)
+            else
+                trayFrame:SetPoint("BOTTOMRIGHT", actionBtn, "TOPRIGHT", 0, 4)
+            end
+        else
+            if btnY > (screenH / 2) then
+                trayFrame:SetPoint("TOPLEFT", actionBtn, "BOTTOMLEFT", 0, -4)
+            else
+                trayFrame:SetPoint("BOTTOMLEFT", actionBtn, "TOPLEFT", 0, 4)
+            end
+        end
+    else
+        trayFrame:SetPoint("TOPRIGHT", actionBtn, "BOTTOMRIGHT", 0, -4)
+    end
+
+    trayFrame:Show()
+    trayDismisser:Show()
 
     for i, btn in ipairs(buttons) do
         local col = (i - 1) % cols
         local row = math.floor((i - 1) / cols)
         local x = marginX + col * (iconSize + pad)
-        local y = -(topMargin + row * (iconSize + pad))
+        local y = -(marginY + row * (iconSize + pad))
 
         btn:ClearAllPoints()
-        btn:SetFrameStrata("HIGH")
-        btn:SetFrameLevel(trayFrame:GetFrameLevel() + 2)
+        if btn.SetFrameStrata then btn:SetFrameStrata("DIALOG") end
+        if btn.SetFrameLevel then btn:SetFrameLevel(100) end
         btn:SetPoint("TOPLEFT", trayFrame, "TOPLEFT", x, y)
-        btn:SetAlpha(1)
+        if btn.SetAlpha then btn:SetAlpha(1) end
+        if btn.EnableMouse then btn:EnableMouse(true) end
         btn:Show()
     end
-    trayFrame:Show()
 end
 
 function AutoLazy_ToggleTray()
@@ -1064,8 +1094,8 @@ btnIcon:SetPoint("CENTER", actionBtn, "CENTER", 0, 0)
 
 local btnBorder = actionBtn:CreateTexture(nil, "OVERLAY")
 btnBorder:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
-btnBorder:SetWidth(54); btnBorder:SetHeight(54)
-btnBorder:SetPoint("TOPLEFT", actionBtn, "TOPLEFT", 0, 0)
+btnBorder:SetWidth(52); btnBorder:SetHeight(52)
+btnBorder:SetPoint("CENTER", actionBtn, "CENTER", 1, -1)
 
 function AutoLazy_UpdateActionButton()
     if not AutoLazyDB then InitDB() end
