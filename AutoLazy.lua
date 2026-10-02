@@ -882,24 +882,8 @@ local function RegisterAddonButton(f, isExplicit)
     end
 end
 
-local function ScanChildrenForAddons(...)
-    local count = select("#", ...)
-    for i = 1, count do
-        local child = select(i, ...)
-        if child and type(child) == "table" and (rawget(child, 0) == nil or type(rawget(child, 0)) == "userdata") then
-            local isBtn = false
-            if child.IsObjectType then
-                local ok, res = pcall(child.IsObjectType, child, "Button")
-                if ok and res then isBtn = true end
-            end
-            if isBtn then
-                RegisterAddonButton(child, false)
-            end
-        end
-    end
-end
-
 function AutoLazy_FindAddonButtons()
+    -- 1. Explicit Known Addon Buttons (Immediate, Zero Overhead)
     for _, kName in ipairs(EXPLICIT_ADDON_BUTTONS) do
         local f = getglobal(kName)
         if f and type(f) == "table" and (rawget(f, 0) == nil or type(rawget(f, 0)) == "userdata") then
@@ -909,8 +893,24 @@ function AutoLazy_FindAddonButtons()
         end
     end
 
-    if Minimap and Minimap.GetChildren then
-        pcall(function() ScanChildrenForAddons(Minimap:GetChildren()) end)
+    -- 2. Dynamically discover 3rd-party minimap buttons via global namespace
+    -- (Never queries Minimap:GetChildren to prevent C++ null vtable Error 132 crashes from DropDownLists)
+    local g = (getglobals and getglobals()) or _G
+    if g then
+        for kName, f in pairs(g) do
+            if type(kName) == "string" and type(f) == "table" and (rawget(f, 0) == nil or type(rawget(f, 0)) == "userdata") then
+                local lName = string_lower(kName)
+                if string_find(lName, "minimapbutton") or string_find(lName, "minimap_button") or
+                   string_find(lName, "_iconframe") or string_find(lName, "minimappin") then
+                    if not BlizzardCoreFrames[kName] and not string_find(kName, "AutoLazy") and
+                       not string_find(lName, "dropdown") and not string_find(lName, "menu") then
+                        if HasRenderableVisual(f) and not IsRadioFrame(f) and not IsLfgFrame(f) and IsValidAddonButton(f) then
+                            RegisterAddonButton(f, true)
+                        end
+                    end
+                end
+            end
+        end
     end
 
     table_wipe(ActiveButtonList)
