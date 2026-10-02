@@ -1039,6 +1039,156 @@ class AutoLazyTests(unittest.TestCase):
         self.assertEqual(st_lft["xOfs"], -22)
         self.assertEqual(st_lft["yOfs"], -14)
 
+    def test_universal_dynamic_minimap_button_discovery(self):
+        """Dynamic scanner identifies minimap buttons regardless of addon name, parentage (Minimap/UIParent), or keywords."""
+        lua = create_autolazy_runtime(r"""
+            -- Button 1: ItemRack_IconFrame (contains "icon_", parent is Minimap)
+            btn_itemrack = CreateFrame("Button", "ItemRack_IconFrame", Minimap)
+            btn_itemrack.GetWidth = function() return 32 end
+            btn_itemrack.GetHeight = function() return 32 end
+            btn_itemrack.GetNormalTexture = function() return { GetTexture = function() return "Interface\\AddOns\\ItemRack\\ItemRack-Icon" end } end
+
+            -- Button 2: SpellAlertMinimapButton (contains "spell", but is a minimap button)
+            btn_spell = CreateFrame("Button", "SpellAlertMinimapButton", Minimap)
+            btn_spell.GetWidth = function() return 32 end
+            btn_spell.GetHeight = function() return 32 end
+            btn_spell.GetNormalTexture = function() return { GetTexture = function() return "Interface\\Icons\\Spell_Fire_Fireball" end } end
+
+            -- Button 3: SmartBuffMinimapButton (contains "buff", but is a minimap button)
+            btn_buff = CreateFrame("Button", "SmartBuffMinimapButton", Minimap)
+            btn_buff.GetWidth = function() return 32 end
+            btn_buff.GetHeight = function() return 32 end
+            btn_buff.GetNormalTexture = function() return { GetTexture = function() return "Interface\\Icons\\Spell_Nature_Rejuvenation" end } end
+
+            -- Button 4: Parented to UIParent, anchored to Minimap
+            btn_uiparent_anchored = CreateFrame("Button", "CustomGuildAddonBtn", UIParent)
+            btn_uiparent_anchored.GetWidth = function() return 32 end
+            btn_uiparent_anchored.GetHeight = function() return 32 end
+            btn_uiparent_anchored.GetPoint = function() return "CENTER", Minimap, "CENTER", 10, -20 end
+            btn_uiparent_anchored.GetNumPoints = function() return 1 end
+            btn_uiparent_anchored.GetNormalTexture = function() return { GetTexture = function() return "Interface\\Icons\\INV_Misc_QuestionMark" end } end
+
+            -- Button 5: Parented to UIParent with circular tracking border
+            btn_uiparent_border = CreateFrame("Button", "CustomCircularBtn", UIParent)
+            btn_uiparent_border.GetWidth = function() return 32 end
+            btn_uiparent_border.GetHeight = function() return 32 end
+            btn_uiparent_border.GetRegions = function()
+                return {
+                    GetTexture = function() return "Interface\\Minimap\\MiniMap-TrackingBorder" end,
+                    GetObjectType = function() return "Texture" end,
+                }
+            end
+
+            -- Button 6: Standard UI action button parented to UIParent (MUST BE REJECTED)
+            btn_action = CreateFrame("Button", "ActionButton1", UIParent)
+            btn_action.GetWidth = function() return 36 end
+            btn_action.GetHeight = function() return 36 end
+            btn_action.GetPoint = function() return "BOTTOM", UIParent, "BOTTOM", 0, 0 end
+            btn_action.GetNumPoints = function() return 1 end
+            btn_action.GetNormalTexture = function() return { GetTexture = function() return "Interface\\Icons\\Ability_Warrior_Charge" end } end
+
+            -- Button 7: Close button on a dialog (MUST BE REJECTED)
+            btn_close = CreateFrame("Button", "CustomDialogCloseButton", UIParent)
+            btn_close.GetWidth = function() return 24 end
+            btn_close.GetHeight = function() return 24 end
+            btn_close.GetPoint = function() return "TOPRIGHT", UIParent, "TOPRIGHT", -10, -10 end
+            btn_close.GetNumPoints = function() return 1 end
+            btn_close.GetNormalTexture = function() return { GetTexture = function() return "Interface\\Buttons\\UI-Panel-MinimizeButton-Up" end } end
+        """)
+        lua.execute(AUTOLAZY_SOURCE)
+
+        res = lua.execute(r"""
+            return AutoLazy.IsValidAddonButton(btn_itemrack),
+                   AutoLazy.IsValidAddonButton(btn_spell),
+                   AutoLazy.IsValidAddonButton(btn_buff),
+                   AutoLazy.IsValidAddonButton(btn_uiparent_anchored),
+                   AutoLazy.IsValidAddonButton(btn_uiparent_border),
+                   AutoLazy.IsValidAddonButton(btn_action),
+                   AutoLazy.IsValidAddonButton(btn_close)
+        """)
+        v_itemrack, v_spell, v_buff, v_anchored, v_border, v_action, v_close = res
+        self.assertTrue(v_itemrack, "ItemRack_IconFrame must be valid")
+        self.assertTrue(v_spell, "SpellAlertMinimapButton must be valid")
+        self.assertTrue(v_buff, "SmartBuffMinimapButton must be valid")
+        self.assertTrue(v_anchored, "UIParent button anchored to Minimap must be valid")
+        self.assertTrue(v_border, "UIParent button with TrackingBorder must be valid")
+        self.assertFalse(v_action, "ActionButton1 must NOT be valid")
+        self.assertFalse(v_close, "Close button must NOT be valid")
+
+    def test_radio_and_lft_never_swallowed_into_addon_tray(self):
+        """Even when HideRadio=false and HideLfg=false, Radio and LFT buttons are never in the Addon Tray."""
+        lua = create_autolazy_runtime(r"""
+            ebc = CreateFrame("Button", "EBC_Minimap", Minimap)
+            ebc.GetWidth = function() return 33 end
+            ebc.GetHeight = function() return 33 end
+            ebc.GetRegions = function()
+                return { GetTexture = function() return "Interface\\Icons\\INV_Gizmo_GoblinBoomBox_01" end }
+            end
+
+            lft = CreateFrame("Button", "LFTMinimapButton", Minimap)
+            lft.GetWidth = function() return 33 end
+            lft.GetHeight = function() return 33 end
+            lft.GetRegions = function()
+                return { GetTexture = function() return "Interface\\FrameXML\\LFT\\images\\eye\\battlenetworking0" end }
+            end
+
+            valid_addon = CreateFrame("Button", "MyGuildAddonMinimapButton", Minimap)
+            valid_addon.GetWidth = function() return 32 end
+            valid_addon.GetHeight = function() return 32 end
+            valid_addon.GetNormalTexture = function()
+                return { GetTexture = function() return "Interface\\Icons\\INV_Misc_Gem_Ruby_01" end }
+            end
+
+            Minimap.GetChildren = function() return ebc, lft, valid_addon end
+        """)
+        lua.execute(AUTOLAZY_SOURCE)
+
+        lua.execute(r"""
+            AutoLazyDB.Tweaks.HideRadio = false
+            AutoLazyDB.Tweaks.HideLfg = false
+            buttons = AutoLazy_FindAddonButtons()
+        """)
+        buttons_count = lua.eval("#buttons")
+        self.assertEqual(buttons_count, 1, "Only the 3rd-party user addon should be found")
+        first_btn_name = lua.eval("buttons[1]:GetName()")
+        self.assertEqual(first_btn_name, "MyGuildAddonMinimapButton")
+
+    def test_class_aware_default_wartorn_scrap_rules(self):
+        """Wartorn scraps automatically default to NEED for the player's class armor type, and MANUAL for others."""
+        lua = create_autolazy_runtime()
+        g = lua.globals()
+
+        # Case 1: Warrior -> Plate NEED, others MANUAL
+        g.UnitClass = lambda unit: ("Warrior", "WARRIOR")
+        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn plate scrap"), "NEED")
+        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn cloth scrap"), "MANUAL")
+        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn leather scrap"), "MANUAL")
+        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn chain scrap"), "MANUAL")
+
+        # Case 2: Mage -> Cloth NEED, others MANUAL
+        g.UnitClass = lambda unit: ("Mage", "MAGE")
+        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn cloth scrap"), "NEED")
+        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn plate scrap"), "MANUAL")
+        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn leather scrap"), "MANUAL")
+        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn chain scrap"), "MANUAL")
+
+        # Case 3: Rogue -> Leather NEED, others MANUAL
+        g.UnitClass = lambda unit: ("Rogue", "ROGUE")
+        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn leather scrap"), "NEED")
+        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn cloth scrap"), "MANUAL")
+        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn plate scrap"), "MANUAL")
+
+        # Case 4: Hunter -> Chain NEED, others MANUAL
+        g.UnitClass = lambda unit: ("Hunter", "HUNTER")
+        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn chain scrap"), "NEED")
+        self.assertEqual(g.AutoLazy.GetDefaultItemRule("wartorn leather scrap"), "MANUAL")
+
+        # Case 5: Non-scrap items keep standard global defaults
+        self.assertEqual(g.AutoLazy.GetDefaultItemRule("corrupted sand"), "NEED")
+        self.assertEqual(g.AutoLazy.GetDefaultItemRule("zg bijous"), "NEED")
+        self.assertEqual(g.AutoLazy.GetDefaultItemRule("zg coins"), "NEED")
+        self.assertEqual(g.AutoLazy.GetDefaultItemRule("aq20 idols"), "MANUAL")
+
 
 if __name__ == "__main__":
     unittest.main()

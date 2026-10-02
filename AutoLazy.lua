@@ -250,6 +250,28 @@ end
 local actionBtn = nil
 local trayFrame = nil
 
+local function GetDefaultItemRule(ruleKey)
+    local def = defaultDB.ItemRules[ruleKey]
+    if not def then return "MANUAL" end
+    -- If it's a Naxxramas wartorn scrap, set intelligent default based on player's armor class
+    if string_find(ruleKey, "wartorn") and UnitClass then
+        local _, pClass = UnitClass("player")
+        if pClass then
+            if pClass == "WARRIOR" or pClass == "PALADIN" then
+                return (ruleKey == "wartorn plate scrap") and "NEED" or "MANUAL"
+            elseif pClass == "ROGUE" or pClass == "DRUID" then
+                return (ruleKey == "wartorn leather scrap") and "NEED" or "MANUAL"
+            elseif pClass == "HUNTER" or pClass == "SHAMAN" then
+                return (ruleKey == "wartorn chain scrap") and "NEED" or "MANUAL"
+            elseif pClass == "MAGE" or pClass == "PRIEST" or pClass == "WARLOCK" then
+                return (ruleKey == "wartorn cloth scrap") and "NEED" or "MANUAL"
+            end
+        end
+    end
+    return def
+end
+AutoLazy.GetDefaultItemRule = GetDefaultItemRule
+
 local function InitDB()
     if not AutoLazyDB then AutoLazyDB = {} end
 
@@ -293,7 +315,7 @@ local function InitDB()
                 end
             end
             if action ~= "MANUAL" and action ~= "NEED" and action ~= "GREED" and action ~= "PASS" then
-                action = defaultDB.ItemRules[ruleKey]
+                action = GetDefaultItemRule(ruleKey)
             end
             AutoLazyDB.ItemRules[ruleKey] = action
         end
@@ -433,12 +455,14 @@ end
 --------------------------------------------------
 local BlizzardCoreFrames = {
     ["Minimap"] = true, ["MinimapBackdrop"] = true, ["MinimapCluster"] = true,
-    ["MiniMapTrackingFrame"] = true, ["MiniMapTracking"] = true, ["MiniMapMailFrame"] = true,
-    ["MiniMapMailIcon"] = true, ["MiniMapBattlefieldFrame"] = true, ["MiniMapBattlefieldIcon"] = true,
+    ["MiniMapTrackingFrame"] = true, ["MiniMapTracking"] = true, ["MiniMapTrackingBorder"] = true,
+    ["MiniMapMailFrame"] = true, ["MiniMapMailIcon"] = true, ["MiniMapMailBorder"] = true,
+    ["MiniMapBattlefieldFrame"] = true, ["MiniMapBattlefieldIcon"] = true, ["MiniMapBattlefieldBorder"] = true,
     ["MinimapZoomIn"] = true, ["MinimapZoomOut"] = true, ["GameTimeFrame"] = true,
     ["MiniMapPing"] = true, ["MinimapZoneTextButton"] = true, ["MinimapZoneText"] = true,
     ["MinimapToggleButton"] = true, ["MinimapToggle"] = true, ["MinimapBorderTop"] = true,
-    ["TimeManagerClockButton"] = true, ["MiniMapWorldMapButton"] = true,
+    ["MinimapBorder"] = true, ["TimeManagerClockButton"] = true, ["MiniMapWorldMapButton"] = true,
+    ["TicketStatusFrame"] = true, ["TicketStatusFrameButton"] = true, ["WorldStateFrame"] = true,
     ["AutoLazy_ActionBtn"] = true, ["AutoLazy_ButtonTray"] = true,
     ["AutoLazy_OptionsFrame"] = true, ["UIParent"] = true,
 }
@@ -723,45 +747,115 @@ local function HasRenderableVisual(f)
     return false
 end
 
+local function IsMinimapTexture(tex)
+    if not tex or type(tex) ~= "string" then return false end
+    local l = string_lower(tex)
+    return string_find(l, "minimap") or string_find(l, "trackingborder")
+end
+
+local function HasMinimapBorder(f)
+    if not f then return false end
+    if f.GetNormalTexture then
+        local norm = f:GetNormalTexture()
+        if norm and norm.GetTexture and IsMinimapTexture(norm:GetTexture()) then return true end
+    end
+    if f.GetRegions then
+        local count = select("#", f:GetRegions())
+        for i = 1, count do
+            local r = select(i, f:GetRegions())
+            if r and r.GetTexture and IsMinimapTexture(r:GetTexture()) then return true end
+        end
+    end
+    return false
+end
+
+local function IsAnchoredToMinimap(f)
+    if not f or not f.GetNumPoints or f:GetNumPoints() == 0 or not f.GetPoint then return false end
+    local point, relTo = f:GetPoint(1)
+    if relTo == Minimap or relTo == MinimapBackdrop or relTo == MinimapCluster then return true end
+    if relTo and relTo.GetName then
+        local n = relTo:GetName()
+        if n == "Minimap" or n == "MinimapBackdrop" or n == "MinimapCluster" then return true end
+    end
+    return false
+end
+
 local function IsValidAddonButton(f)
     if not f or not f:IsObjectType("Button") then return false end
     local name = f.GetName and f:GetName()
     if name then
         if BlizzardCoreFrames[name] or string_find(name, "AutoLazy") then return false end
         local lower = string_lower(name)
-        if string_find(lower, "aura") or string_find(lower, "buff") or string_find(lower, "debuff") or
-           string_find(lower, "cooldown") or string_find(lower, "combat") or string_find(lower, "action") or
-           string_find(lower, "spell") or string_find(lower, "icon_") or string_find(lower, "condition") or
-           string_find(lower, "close") or string_find(lower, "play") or string_find(lower, "targetframe") then
-            if name ~= "DoiteAurasMinimapButton" then return false end
+        if string_find(lower, "zonetext") or string_find(lower, "toggle") or
+           string_find(lower, "border") or string_find(lower, "backdrop") or
+           string_find(lower, "cluster") or string_find(lower, "close") or
+           string_find(lower, "play") or string_find(lower, "targetframe") then
+            return false
+        end
+
+        -- Keyword filtering ONLY for frames that do NOT explicitly identify as minimap buttons
+        if not string_find(lower, "minimap") then
+            if string_find(lower, "aura") or string_find(lower, "buff") or string_find(lower, "debuff") or
+               string_find(lower, "cooldown") or string_find(lower, "combat") or string_find(lower, "action") or
+               string_find(lower, "spell") or string_find(lower, "condition") then
+                return false
+            end
         end
     end
 
+    -- Radio and LFG frames have dedicated system toggles and are NEVER generic 3rd-party user addons
     if IsRadioFrame(f) or IsLfgFrame(f) then return false end
 
+    -- Size verification: Standard 1.12 minimap icons are 16x16 to 54x54
     local w, h = f:GetWidth(), f:GetHeight()
     if w and h and w > 0 and h > 0 then
         if w > 54 or h > 54 or w < 16 or h < 16 then return false end
     end
 
+    -- If parented to UIParent (not directly to Minimap or tray), verify it's anchored or designed for minimap
+    local parent = f:GetParent()
+    if parent == UIParent or (parent and parent.GetName and parent:GetName() == "UIParent") then
+        local isMinimapNamed = name and string_find(string_lower(name), "minimap")
+        local isAnchored = IsAnchoredToMinimap(f)
+        local hasBorder = HasMinimapBorder(f)
+        if not (isMinimapNamed or isAnchored or hasBorder) then
+            return false
+        end
+    end
+
     return HasRenderableVisual(f)
 end
 AutoLazy.IsValidAddonButton = IsValidAddonButton
+AutoLazy.IsMinimapTexture = IsMinimapTexture
+AutoLazy.HasMinimapBorder = HasMinimapBorder
+AutoLazy.IsAnchoredToMinimap = IsAnchoredToMinimap
 
 local EXPLICIT_ADDON_BUTTONS = {
-    "AtlasLootMinimapButtonFrame", "AtlasLootMinimapButton", "pfQuestIcon", "DoiteAurasMinimapButton",
-    "TrinketMenu_IconFrame", "BagnonMinimapButton", "AutoBG_QuickQueueButton", "TWThreatMinimapButton",
-    "shootyepgpMinimapButton", "sepgpMinimapButton", "WIM3MinimapButton", "SuperAPIOptionsMinimapButton",
-    "EasyPoisonsMinimapButton", "ModernMapMarkersMinimapButton", "ShaguDPSMinimapButton", "BigWigsMinimapButton",
+    -- Core & Inventory / Gear
+    "AtlasLootMinimapButtonFrame", "AtlasLootMinimapButton", "AtlasButton", "AtlasMinimapButton",
+    "pfQuestIcon", "ItemRack_IconFrame", "TrinketMenu_IconFrame", "OutfitterMinimapButton",
+    "Outfitter_MinimapButton", "BagnonMinimapButton", "OneBagMinimapButton",
+    -- Guild, Raiding, DPS & Threat
+    "TWThreatMinimapButton", "KTM_MinimapButton", "KLHTM_MinimapButton", "KLHThreatMeterMinimapButton",
+    "shootyepgpMinimapButton", "sepgpMinimapButton", "BigWigsMinimapButton", "WIM3MinimapButton", "WIM_MinimapButton",
+    "ShaguDPSMinimapButton", "DPSMateMinimapButton", "SW_MinimapButton", "SW_IconFrame", "DamageExMinimapButton",
+    -- Leveling, Questing & World
+    "QuestieMinimapButton", "Questie_MinimapButton", "Dcr_MinimapButton", "DecursiveMinimapButton",
+    "Gatherer_MinimapOptionsButton", "GathererMinimapButton", "MobInfo2MinimapButton", "MI2_MinimapButton",
+    "CensusPlusMinimapButton", "CensusPlus_MinimapButton", "FishingBuddyMinimapButton",
+    "SmartBuff_MinimapButton", "SmartBuffMinimapButton", "DoiteAurasMinimapButton",
+    "EasyPoisonsMinimapButton", "ModernMapMarkersMinimapButton", "SuperAPIOptionsMinimapButton",
+    "AutoBG_QuickQueueButton", "SuperMacroMinimapButton", "TomTomMinimapButton", "CartographerMinimapButton",
+    "RecountMinimapButton", "OmenMinimapButton", "SpellAlertMinimapButton", "NecrosisMinimapButton",
+    "TheoryCraftMinimapButton", "HealBotMinimapButton", "CliqueMinimapButton",
+    "MailToMinimapButton", "PostalMinimapButton", "CT_MinimapButton", "TitanPanelMinimapButton",
 }
 
 local function RegisterAddonButton(f, isExplicit)
     if not f or not f:IsObjectType("Button") then return end
+    -- Radio and LFG frames have dedicated system toggles and are NEVER 3rd-party user addons in the tray
+    if IsRadioFrame(f) or IsLfgFrame(f) then return end
     if not isExplicit and not IsValidAddonButton(f) then return end
-    if AutoLazyDB and AutoLazyDB.Tweaks then
-        if AutoLazyDB.Tweaks.HideRadio and IsRadioFrame(f) then return end
-        if AutoLazyDB.Tweaks.HideLfg and IsLfgFrame(f) then return end
-    end
 
     if not DiscoveredAddonSet[f] then
         DiscoveredAddonSet[f] = true
@@ -769,11 +863,21 @@ local function RegisterAddonButton(f, isExplicit)
             local numPoints = (f.GetNumPoints and f:GetNumPoints()) or 0
             local point, relTo, relPoint, xOfs, yOfs = nil, nil, nil, 0, 0
             if numPoints > 0 and f.GetPoint then point, relTo, relPoint, xOfs, yOfs = f:GetPoint(1) end
+
+            local origParent = f:GetParent()
+            if origParent == trayFrame or (origParent and origParent.GetName and origParent:GetName() == "AutoLazy_ButtonTray") then
+                origParent = Minimap
+            end
+            local origRelTo = relTo or origParent or Minimap
+            if origRelTo == trayFrame or (origRelTo and origRelTo.GetName and origRelTo:GetName() == "AutoLazy_ButtonTray") then
+                origRelTo = Minimap
+            end
+
             local origPoint = point or "CENTER"
             local origRelPoint = relPoint or origPoint
             f._alOrigState = {
-                parent = f:GetParent(), point = origPoint,
-                relativeTo = relTo or f:GetParent() or Minimap, relativePoint = origRelPoint,
+                parent = origParent, point = origPoint,
+                relativeTo = origRelTo, relativePoint = origRelPoint,
                 xOfs = xOfs or 0, yOfs = yOfs or 0, alpha = (f.GetAlpha and f:GetAlpha()) or 1,
             }
         end
@@ -794,23 +898,21 @@ end
 function AutoLazy_FindAddonButtons()
     for _, kName in ipairs(EXPLICIT_ADDON_BUTTONS) do
         local f = getglobal(kName)
-        if f and HasRenderableVisual(f) then RegisterAddonButton(f, true) end
+        if f and HasRenderableVisual(f) and not IsRadioFrame(f) and not IsLfgFrame(f) then
+            RegisterAddonButton(f, true)
+        end
     end
 
     if Minimap and Minimap.GetChildren then ScanChildrenForAddons(Minimap:GetChildren()) end
     if MinimapBackdrop and MinimapBackdrop.GetChildren then ScanChildrenForAddons(MinimapBackdrop:GetChildren()) end
     if MinimapCluster and MinimapCluster.GetChildren then ScanChildrenForAddons(MinimapCluster:GetChildren()) end
     if trayFrame and trayFrame.GetChildren then ScanChildrenForAddons(trayFrame:GetChildren()) end
+    if UIParent and UIParent.GetChildren then ScanChildrenForAddons(UIParent:GetChildren()) end
 
     table_wipe(ActiveButtonList)
     for _, btn in ipairs(DiscoveredAddonList) do
-        if HasRenderableVisual(btn) then
-            local isSuppressed = false
-            if AutoLazyDB and AutoLazyDB.Tweaks then
-                if AutoLazyDB.Tweaks.HideRadio and IsRadioFrame(btn) then isSuppressed = true; SetFrameSuppressed(btn, true)
-                elseif AutoLazyDB.Tweaks.HideLfg and IsLfgFrame(btn) then isSuppressed = true; SetFrameSuppressed(btn, true) end
-            end
-            if not isSuppressed then table_insert(ActiveButtonList, btn) end
+        if HasRenderableVisual(btn) and not IsRadioFrame(btn) and not IsLfgFrame(btn) then
+            table_insert(ActiveButtonList, btn)
         end
     end
     return ActiveButtonList
