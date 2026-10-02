@@ -1077,25 +1077,31 @@ end
 -- AUTOLAZY FLOATING DRAGGABLE BUTTON
 --------------------------------------------------
 actionBtn = CreateFrame("Button", "AutoLazy_ActionBtn", UIParent)
-actionBtn:SetWidth(33); actionBtn:SetHeight(33)
+actionBtn:SetWidth(31); actionBtn:SetHeight(31)
 actionBtn:SetFrameStrata("MEDIUM")
 actionBtn:SetToplevel(true)
 actionBtn:EnableMouse(true)
 actionBtn:SetMovable(true)
 actionBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-actionBtn:RegisterForDrag("LeftButton", "RightButton")
+actionBtn:RegisterForDrag("LeftButton")
 actionBtn:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
 if actionBtn.SetClampedToScreen then actionBtn:SetClampedToScreen(true) end
 
-local btnIcon = actionBtn:CreateTexture(nil, "BACKGROUND")
+local btnBg = actionBtn:CreateTexture(nil, "BACKGROUND")
+btnBg:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
+btnBg:SetWidth(20); btnBg:SetHeight(20)
+btnBg:SetPoint("TOPLEFT", actionBtn, "TOPLEFT", 6, -5)
+
+local btnIcon = actionBtn:CreateTexture(nil, "ARTWORK")
 btnIcon:SetTexture("Interface\\Icons\\INV_Misc_Bag_08")
 btnIcon:SetWidth(20); btnIcon:SetHeight(20)
-btnIcon:SetPoint("CENTER", actionBtn, "CENTER", 0, 0)
+if btnIcon.SetTexCoord then btnIcon:SetTexCoord(0.07, 0.93, 0.07, 0.93) end
+btnIcon:SetPoint("TOPLEFT", actionBtn, "TOPLEFT", 6, -5)
 
 local btnBorder = actionBtn:CreateTexture(nil, "OVERLAY")
 btnBorder:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
-btnBorder:SetWidth(52); btnBorder:SetHeight(52)
-btnBorder:SetPoint("CENTER", actionBtn, "CENTER", 1, -1)
+btnBorder:SetWidth(53); btnBorder:SetHeight(53)
+btnBorder:SetPoint("TOPLEFT", actionBtn, "TOPLEFT", 0, 0)
 
 function AutoLazy_UpdateActionButton()
     if not AutoLazyDB then InitDB() end

@@ -101,22 +101,22 @@ end
 local currentTab = 1
 
 local btnTab1 = CreateFrame("Button", "AutoLazy_BtnTab1", panel, "UIPanelButtonTemplate")
-btnTab1:SetWidth(130)
+btnTab1:SetWidth(140)
 btnTab1:SetHeight(22)
-btnTab1:SetPoint("TOPLEFT", panel, "TOPLEFT", 25, -68)
+btnTab1:SetPoint("TOPLEFT", panel, "TOPLEFT", 30, -68)
 btnTab1:SetText("Tweaks")
 
 local btnTab2 = CreateFrame("Button", "AutoLazy_BtnTab2", panel, "UIPanelButtonTemplate")
-btnTab2:SetWidth(130)
+btnTab2:SetWidth(140)
 btnTab2:SetHeight(22)
-btnTab2:SetPoint("TOPLEFT", panel, "TOPLEFT", 165, -68)
+btnTab2:SetPoint("TOPLEFT", panel, "TOPLEFT", 180, -68)
 btnTab2:SetText("Loot")
 
 local btnTab3 = CreateFrame("Button", "AutoLazy_BtnTab3", panel, "UIPanelButtonTemplate")
-btnTab3:SetWidth(160)
+btnTab3:SetWidth(140)
 btnTab3:SetHeight(22)
-btnTab3:SetPoint("TOPLEFT", panel, "TOPLEFT", 305, -68)
-btnTab3:SetText("Quest Automation")
+btnTab3:SetPoint("TOPLEFT", panel, "TOPLEFT", 330, -68)
+btnTab3:SetText("Quests")
 
 local function ShowTab(tabIndex)
     currentTab = tabIndex
@@ -150,15 +150,15 @@ btnTab3:SetScript("OnClick", function() ShowTab(3) end)
 -- TAB 1: TWEAKS (SYSTEM BLOAT & ADDON TRAY)
 --------------------------------------------------
 local secTweaksTitle = tabTweaks:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-secTweaksTitle:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 36, -108)
+secTweaksTitle:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 36, -112)
 secTweaksTitle:SetText("|cFFFFD100System Toggles & Addon Tray|r")
 
 local secTweaksDesc = tabTweaks:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-secTweaksDesc:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 36, -130)
+secTweaksDesc:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 36, -134)
 secTweaksDesc:SetText("Clean up your minimap, hide system bloat, and manage your Addon Tray.")
 
 -- Row 1: AutoLazy Floating Button
-local cbShowBtn = CreateCheckbox("AutoLazy_ToggleShowBtn", "Show AutoLazy Button", "Show or hide the floating AutoLazy button on your screen.", tabTweaks, "TOPLEFT", tabTweaks, "TOPLEFT", 36, -170, function(btn)
+local cbShowBtn = CreateCheckbox("AutoLazy_ToggleShowBtn", "Show AutoLazy Button", "Show or hide the floating AutoLazy button on your screen.", tabTweaks, "TOPLEFT", tabTweaks, "TOPLEFT", 36, -174, function(btn)
     if AutoLazyDB then
         AutoLazyDB.ShowButton = (btn:GetChecked() == 1 or btn:GetChecked() == true)
         if AutoLazy_UpdateActionButton then AutoLazy_UpdateActionButton() end
@@ -169,14 +169,14 @@ tweakWidgets["ShowButton"] = cbShowBtn
 local btnResetBtnPos = CreateFrame("Button", "AutoLazy_BtnResetBtnPos", tabTweaks, "UIPanelButtonTemplate")
 btnResetBtnPos:SetWidth(150)
 btnResetBtnPos:SetHeight(22)
-btnResetBtnPos:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 270, -170)
+btnResetBtnPos:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 270, -174)
 btnResetBtnPos:SetText("Reset Position")
 btnResetBtnPos:SetScript("OnClick", function()
     if AutoLazy_ResetActionButtonPos then AutoLazy_ResetActionButtonPos() end
 end)
 
 -- Row 2: Addon Tray & Minimap Collapse
-local cbCollapse = CreateCheckbox("AutoLazy_ToggleCollapse", "|cFF00FF00Collapse Addons into Tray|r", "Automatically collapses all addon minimap buttons into the tray on login to keep your minimap 100% clean.", tabTweaks, "TOPLEFT", tabTweaks, "TOPLEFT", 36, -215, function(btn)
+local cbCollapse = CreateCheckbox("AutoLazy_ToggleCollapse", "Collapse Addons into Tray", "Automatically collapses all addon minimap buttons into the tray on login to keep your minimap 100% clean.", tabTweaks, "TOPLEFT", tabTweaks, "TOPLEFT", 36, -222, function(btn)
     if AutoLazyDB and AutoLazyDB.Tweaks then
         AutoLazyDB.Tweaks.CollapseAddons = (btn:GetChecked() == 1 or btn:GetChecked() == true)
         if AutoLazy_CollapseAddons then AutoLazy_CollapseAddons(AutoLazyDB.Tweaks.CollapseAddons) end
@@ -187,14 +187,14 @@ tweakWidgets["CollapseAddons"] = cbCollapse
 local btnOpenTray = CreateFrame("Button", "AutoLazy_BtnOpenTray", tabTweaks, "UIPanelButtonTemplate")
 btnOpenTray:SetWidth(150)
 btnOpenTray:SetHeight(22)
-btnOpenTray:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 270, -215)
+btnOpenTray:SetPoint("TOPLEFT", tabTweaks, "TOPLEFT", 270, -222)
 btnOpenTray:SetText("Toggle Addon Tray")
 btnOpenTray:SetScript("OnClick", function()
     if AutoLazy_ToggleTray then AutoLazy_ToggleTray() end
 end)
 
 -- Row 3: Hide System Bloat (Radio & LFG)
-local cbHideRadio = CreateCheckbox("AutoLazy_ToggleHideRadio", "|cFFFF8080Hide Pirate Radio|r", "Hides the Booty Bay Pirate Radio button from the minimap.", tabTweaks, "TOPLEFT", tabTweaks, "TOPLEFT", 36, -265, function(btn)
+local cbHideRadio = CreateCheckbox("AutoLazy_ToggleHideRadio", "Hide Pirate Radio", "Hides the Booty Bay Pirate Radio button from the minimap.", tabTweaks, "TOPLEFT", tabTweaks, "TOPLEFT", 36, -270, function(btn)
     if AutoLazyDB and AutoLazyDB.Tweaks then
         AutoLazyDB.Tweaks.HideRadio = (btn:GetChecked() == 1 or btn:GetChecked() == true)
         if AutoLazy_ApplySystemIconToggles then AutoLazy_ApplySystemIconToggles() end
@@ -202,7 +202,7 @@ local cbHideRadio = CreateCheckbox("AutoLazy_ToggleHideRadio", "|cFFFF8080Hide P
 end)
 tweakWidgets["HideRadio"] = cbHideRadio
 
-local cbHideLfg = CreateCheckbox("AutoLazy_ToggleHideLfg", "|cFFFF8080Hide Group Finder (LFG)|r", "Hides the in-game Group Finder / LFT eye button from the minimap.", tabTweaks, "TOPLEFT", tabTweaks, "TOPLEFT", 270, -265, function(btn)
+local cbHideLfg = CreateCheckbox("AutoLazy_ToggleHideLfg", "Hide Group Finder (LFG)", "Hides the in-game Group Finder / LFT eye button from the minimap.", tabTweaks, "TOPLEFT", tabTweaks, "TOPLEFT", 270, -270, function(btn)
     if AutoLazyDB and AutoLazyDB.Tweaks then
         AutoLazyDB.Tweaks.HideLfg = (btn:GetChecked() == 1 or btn:GetChecked() == true)
         if AutoLazy_ApplySystemIconToggles then AutoLazy_ApplySystemIconToggles() end
@@ -215,26 +215,26 @@ local tweakTip = tabTweaks:CreateFontString(nil, "ARTWORK", "GameFontDisableSmal
 tweakTip:SetPoint("BOTTOMLEFT", tabTweaks, "BOTTOMLEFT", 36, 62)
 tweakTip:SetPoint("RIGHT", tabTweaks, "RIGHT", -36, 0)
 tweakTip:SetJustifyH("LEFT")
-tweakTip:SetText("|cFF888888AutoLazy Button Controls:\n  • |cFFFFD100Left-Click:|r Open / Close Addon Tray\n  • |cFFFFD100Right-Click:|r Open AutoLazy Options\n  • |cFF00FF00Click & Drag:|r Move button anywhere on screen|r")
+tweakTip:SetText("|cFF888888AutoLazy Button Controls:\n  • |cFFFFD100Left-Click:|r Open / Close Addon Tray\n  • |cFFFFD100Right-Click:|r Open AutoLazy Options\n  • |cFFFFD100Click & Drag:|r Move button anywhere on screen|r")
 
 --------------------------------------------------
 -- TAB 2: LOOT & DUNGEONS
 --------------------------------------------------
-local cbMaster = CreateCheckbox("AutoLazy_MasterEnable", "|cFF00FF00Auto-roll listed items|r", "Apply the chosen roll action to listed items in supported dungeons. Other items are never rolled automatically.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 25, -96, function(btn)
+local cbMaster = CreateCheckbox("AutoLazy_MasterEnable", "Auto-roll listed items", "Apply the chosen roll action to listed items in supported dungeons. Other items are never rolled automatically.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 36, -112, function(btn)
     if AutoLazyDB then
         AutoLazyDB.Enabled = (btn:GetChecked() == 1 or btn:GetChecked() == true)
     end
 end)
 generalWidgets["Enabled"] = cbMaster
 
-local cbBop = CreateCheckbox("AutoLazy_OptBop", "Auto-Confirm BoP", "While auto-roll is enabled, automatically confirm bind-on-pickup dialogs for rolls and direct loot.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 250, -96, function(btn)
+local cbBop = CreateCheckbox("AutoLazy_OptBop", "Auto-Confirm BoP", "While auto-roll is enabled, automatically confirm bind-on-pickup dialogs for rolls and direct loot.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 260, -112, function(btn)
     if AutoLazyDB then
         AutoLazyDB.AutoConfirmBop = (btn:GetChecked() == 1 or btn:GetChecked() == true)
     end
 end)
 generalWidgets["AutoConfirmBop"] = cbBop
 
-local cbCleanRoll = CreateCheckbox("AutoLazy_OptCleanRollChat", "|cFF00FF00Clean Roll Chat|r", "Hides intermediate Need, Greed, Pass and roll chatter, showing only the final winning player.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 25, -120, function(btn)
+local cbCleanRoll = CreateCheckbox("AutoLazy_OptCleanRollChat", "Clean Roll Chat", "Hides intermediate Need, Greed, Pass and roll chatter, showing only the final winning player.", tabLoot, "TOPLEFT", tabLoot, "TOPLEFT", 36, -142, function(btn)
     if AutoLazyDB then
         AutoLazyDB.CleanRollChat = (btn:GetChecked() == 1 or btn:GetChecked() == true)
     end
@@ -243,7 +243,7 @@ generalWidgets["CleanRollChat"] = cbCleanRoll
 
 -- Left Column: Dungeons List
 local lblDungeons = tabLoot:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-lblDungeons:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 25, -148)
+lblDungeons:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 36, -185)
 lblDungeons:SetText("|cFFFFD100Dungeons|r")
 
 local dungeonOrder = {
@@ -260,7 +260,7 @@ for i, dKey in ipairs(dungeonOrder) do
     local btn = CreateFrame("Button", "AutoLazy_DungeonBtn_" .. i, tabLoot, "UIPanelButtonTemplate")
     btn:SetWidth(140)
     btn:SetHeight(24)
-    btn:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 25, -168 - (i - 1) * 28)
+    btn:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 36, -210 - (i - 1) * 30)
     btn:SetText(dKey)
     btn.dungeonKey = dKey
     btn:SetScript("OnClick", function(self)
@@ -272,18 +272,18 @@ for i, dKey in ipairs(dungeonOrder) do
 end
 
 local lblZone = tabLoot:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-lblZone:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 25, -286)
-lblZone:SetPoint("RIGHT", tabLoot, "TOPLEFT", 165, -286)
+lblZone:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 36, -345)
+lblZone:SetPoint("RIGHT", tabLoot, "TOPLEFT", 176, -345)
 lblZone:SetJustifyH("LEFT")
 lblZone:SetText("Zone: Detecting...")
 
 -- Right Column: Selected Dungeon and one explicit roll action per listed item.
 local lblSelectedTitle = tabLoot:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-lblSelectedTitle:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 180, -148)
+lblSelectedTitle:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 195, -185)
 lblSelectedTitle:SetText("The Black Morass")
 
 local lblRollHelp = tabLoot:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-lblRollHelp:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 180, -172)
+lblRollHelp:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 195, -209)
 lblRollHelp:SetText("Choose one action per item. Manual leaves the roll open.")
 
 local rollActions = { "MANUAL", "NEED", "GREED", "PASS" }
@@ -293,9 +293,9 @@ local rollLabels = { MANUAL = "Manual", NEED = "Need", GREED = "Greed", PASS = "
 local itemRows = {}
 for i = 1, 4 do
     local row = CreateFrame("Frame", "AutoLazy_ItemRow_" .. i, tabLoot)
-    row:SetWidth(295)
+    row:SetWidth(275)
     row:SetHeight(48)
-    row:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 180, -196 - (i - 1) * 53)
+    row:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 195, -233 - (i - 1) * 54)
 
     local iconBtn = CreateFrame("Button", "AutoLazy_ItemIcon_" .. i, row)
     iconBtn:SetWidth(28)
@@ -338,9 +338,9 @@ for i = 1, 4 do
     row.actionButtons = {}
     for actionIndex, action in ipairs(rollActions) do
         local btn = CreateFrame("Button", "AutoLazy_ItemAction_" .. i .. "_" .. action, row, "UIPanelButtonTemplate")
-        btn:SetWidth(69)
+        btn:SetWidth(65)
         btn:SetHeight(20)
-        btn:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", (actionIndex - 1) * 74, 0)
+        btn:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", (actionIndex - 1) * 70, 0)
         btn:SetText(rollLabels[action])
         btn.action = action
         btn:SetScript("OnClick", function(self)
@@ -357,45 +357,45 @@ for i = 1, 4 do
 end
 
 --------------------------------------------------
--- TAB 3: QUEST AUTOMATION
+-- TAB 3: QUESTS
 --------------------------------------------------
 local secQuestTitle = tabQuests:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-secQuestTitle:SetPoint("TOPLEFT", tabQuests, "TOPLEFT", 36, -104)
-secQuestTitle:SetText("|cFFFFD100Quest Automation|r")
+secQuestTitle:SetPoint("TOPLEFT", tabQuests, "TOPLEFT", 36, -112)
+secQuestTitle:SetText("|cFFFFD100Quests|r")
 
 local secQuestDesc = tabQuests:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-secQuestDesc:SetPoint("TOPLEFT", tabQuests, "TOPLEFT", 36, -124)
+secQuestDesc:SetPoint("TOPLEFT", tabQuests, "TOPLEFT", 36, -134)
 secQuestDesc:SetText("Hold |cFFFFD100Shift|r while talking to an NPC to automate quest interaction.\nOn multi-quest NPCs, choose your quest and AutoLazy handles the rest.")
 
-local cbQuestMaster = CreateCheckbox("AutoLazy_QuestMaster", "|cFF00FF00Enable Shift + Click Quest Automation|r", "Hold Shift while talking to an NPC for instant turn-in and accepting. On multi-quest NPCs, select your quest to automate it.", tabQuests, "TOPLEFT", tabQuests, "TOPLEFT", 36, -154, function(btn)
+local cbQuestMaster = CreateCheckbox("AutoLazy_QuestMaster", "Enable Shift + Click Quest Automation", "Hold Shift while talking to an NPC for instant turn-in and accepting. On multi-quest NPCs, select your quest to automate it.", tabQuests, "TOPLEFT", tabQuests, "TOPLEFT", 36, -176, function(btn)
     if AutoLazyDB and AutoLazyDB.Quests then
         AutoLazyDB.Quests.Enabled = (btn:GetChecked() == 1 or btn:GetChecked() == true)
     end
 end)
 questWidgets["Enabled"] = cbQuestMaster
 
-local cbQuestTurnIn = CreateCheckbox("AutoLazy_QuestTurnIn", "Auto-Turn In Completed Quests", "Automatically turn in completed quests. If multiple completed quests exist, choose the desired quest.", tabQuests, "TOPLEFT", tabQuests, "TOPLEFT", 36, -184, function(btn)
+local cbQuestTurnIn = CreateCheckbox("AutoLazy_QuestTurnIn", "Auto-Turn In Completed Quests", "Automatically turn in completed quests. If multiple completed quests exist, choose the desired quest.", tabQuests, "TOPLEFT", tabQuests, "TOPLEFT", 36, -210, function(btn)
     if AutoLazyDB and AutoLazyDB.Quests then
         AutoLazyDB.Quests.AutoTurnIn = (btn:GetChecked() == 1 or btn:GetChecked() == true)
     end
 end)
 questWidgets["AutoTurnIn"] = cbQuestTurnIn
 
-local cbQuestAccept = CreateCheckbox("AutoLazy_QuestAccept", "Auto-Accept Available Quests", "Automatically accept single quests or the quest you choose from a list.", tabQuests, "TOPLEFT", tabQuests, "TOPLEFT", 36, -214, function(btn)
+local cbQuestAccept = CreateCheckbox("AutoLazy_QuestAccept", "Auto-Accept Available Quests", "Automatically accept single quests or the quest you choose from a list.", tabQuests, "TOPLEFT", tabQuests, "TOPLEFT", 36, -244, function(btn)
     if AutoLazyDB and AutoLazyDB.Quests then
         AutoLazyDB.Quests.AutoAccept = (btn:GetChecked() == 1 or btn:GetChecked() == true)
     end
 end)
 questWidgets["AutoAccept"] = cbQuestAccept
 
-local cbQuestSafe = CreateCheckbox("AutoLazy_QuestSafe", "Reward Safety (Pause if multiple gear rewards exist)", "Stops auto turn-in when multiple rewards are offered so you can choose gear manually.", tabQuests, "TOPLEFT", tabQuests, "TOPLEFT", 36, -244, function(btn)
+local cbQuestSafe = CreateCheckbox("AutoLazy_QuestSafe", "Reward Safety (Pause if multiple gear rewards exist)", "Stops auto turn-in when multiple rewards are offered so you can choose gear manually.", tabQuests, "TOPLEFT", tabQuests, "TOPLEFT", 36, -278, function(btn)
     if AutoLazyDB and AutoLazyDB.Quests then
         AutoLazyDB.Quests.SafeRewards = (btn:GetChecked() == 1 or btn:GetChecked() == true)
     end
 end)
 questWidgets["SafeRewards"] = cbQuestSafe
 
-local cbQuestAlways = CreateCheckbox("AutoLazy_QuestAlways", "Always Active (Does not require holding Shift)", "Automatically handles quests on all NPC interactions without holding Shift.", tabQuests, "TOPLEFT", tabQuests, "TOPLEFT", 36, -274, function(btn)
+local cbQuestAlways = CreateCheckbox("AutoLazy_QuestAlways", "Always Active (Does not require holding Shift)", "Automatically handles quests on all NPC interactions without holding Shift.", tabQuests, "TOPLEFT", tabQuests, "TOPLEFT", 36, -312, function(btn)
     if AutoLazyDB and AutoLazyDB.Quests then
         AutoLazyDB.Quests.AlwaysActive = (btn:GetChecked() == 1 or btn:GetChecked() == true)
     end
