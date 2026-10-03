@@ -1,6 +1,6 @@
 """Regression and integration tests for AutoLazy.
 Requires lupa Lua 5.1.
-Run: python -B tests/test_autolazy.py [directory-containing-lupa]
+Run: python -B .dev/tests/test_autolazy.py [directory-containing-lupa]
 """
 from pathlib import Path
 import re
@@ -11,12 +11,14 @@ if len(sys.argv) > 1:
     sys.path.insert(0, sys.argv.pop(1))
 from lupa.lua51 import LuaRuntime
 
-AUTOLAZY_DIR = Path(__file__).resolve().parents[1]
+AUTOLAZY_DIR = Path(__file__).resolve().parents[2]
 AUTOLAZY_SOURCE = (AUTOLAZY_DIR / "AutoLazy.lua").read_text(encoding="utf-8")
+TRAY_SOURCE = (AUTOLAZY_DIR / "AutoLazy_MinimapTray.lua").read_text(encoding="utf-8")
+FRAME_MOCK = (AUTOLAZY_DIR / ".dev" / "tests" / "frame_mock.lua").read_text(encoding="utf-8")
 AUTOLAZY_GUI_SOURCE = (AUTOLAZY_DIR / "AutoLazy_GUI.lua").read_text(encoding="utf-8")
 AUTOLAZY_TOC = (AUTOLAZY_DIR / "AutoLazy.toc").read_text(encoding="utf-8")
 README_SOURCE = (AUTOLAZY_DIR / "README.md").read_text(encoding="utf-8")
-USER_GUIDE_SOURCE = (AUTOLAZY_DIR / "docs" / "USER_GUIDE.md").read_text(encoding="utf-8")
+USER_GUIDE_SOURCE = (AUTOLAZY_DIR / ".dev" / "USER_GUIDE.md").read_text(encoding="utf-8")
 
 
 def create_autolazy_runtime(extra_lua=""):
@@ -40,44 +42,6 @@ def create_autolazy_runtime(extra_lua=""):
                 table.insert(timers, { delay = sec, callback = cb })
             end
         }
-        CreateFrame = function(frameType, name, parent, template)
-            local f = {
-                name = name,
-                parent = parent,
-                scripts = {},
-                SetScript = function(self, scr, handler) self.scripts[scr] = handler end,
-                RegisterEvent = function(self, ev) end,
-                GetName = function(self) return self.name end,
-                GetParent = function(self) return self.parent end,
-                IsObjectType = function(self, t) return true end,
-                IsShown = function(self) return false end,
-                Show = function(self) end,
-                Hide = function(self) end,
-                ClearAllPoints = function(self) end,
-                SetPoint = function(self, ...) end,
-                SetWidth = function(self, w) end,
-                SetHeight = function(self, h) end,
-                SetFrameStrata = function(self, s) end,
-                SetMovable = function(self, m) end,
-                SetToplevel = function(self, t) end,
-                SetBackdrop = function(self, b) end,
-                SetBackdropColor = function(self, ...) end,
-                SetBackdropBorderColor = function(self, ...) end,
-                SetHighlightTexture = function(self, t) end,
-                SetNormalTexture = function(self, t) end,
-                SetPushedTexture = function(self, t) end,
-                SetDisabledTexture = function(self, t) end,
-                EnableMouse = function(self, e) end,
-                RegisterForDrag = function(self, ...) end,
-                RegisterForClicks = function(self, ...) end,
-                SetAlpha = function(self, a) self.alpha = a end,
-                GetAlpha = function(self) return self.alpha or 1 end,
-                CreateFontString = function(self) return { SetPoint = function() end, SetText = function() end, SetJustifyH = function() end } end,
-                CreateTexture = function(self) return { SetPoint = function() end, SetTexture = function() end, SetWidth = function() end, SetHeight = function() end } end,
-            }
-            if name then _G[name] = f end
-            return f
-        end
         function getglobal(n) return _G[n] end
         C_GossipInfo = {
             GetActiveQuests = function() return {} end,
@@ -108,11 +72,13 @@ def create_autolazy_runtime(extra_lua=""):
         LOOT_ROLL_YOU_WON_NO_SPAM_NEED = "You won: %2$s |cff818181(Need - %1$d)|r"
         LOOT_ROLL_YOU_WON_NO_SPAM_GREED = "You won: %2$s |cff818181(Greed - %1$d)|r"
     """
-    lua.execute(setup + "\n" + extra_lua)
+    lua.execute(setup + "\n" + FRAME_MOCK + "\n" + extra_lua)
     lua.execute(AUTOLAZY_SOURCE)
+    lua.execute(TRAY_SOURCE)
     event_frame = lua.globals().AutoLazy_EventFrame
     if event_frame and event_frame.scripts and event_frame.scripts["OnEvent"]:
         event_frame.scripts["OnEvent"](event_frame, "ADDON_LOADED", "AutoLazy")
+    lua.execute('MockRunScript(AutoLazy_TrayController, "OnEvent", "ADDON_LOADED", "AutoLazy"); MockFlushTimers()')
     return lua
 
 
@@ -257,7 +223,7 @@ class AutoLazyTests(unittest.TestCase):
     def test_11_12_13_clean_roll_chat_present_alerts_and_dungeon_reset_removed(self):
         """11, 12, 13: Clean Roll Chat is present in Tab 2; Chat Roll Alerts and Reset This Dungeon are removed."""
         self.assertIn("AutoLazy_OptCleanRollChat", AUTOLAZY_GUI_SOURCE)
-        self.assertIn("Clean Roll Chat", AUTOLAZY_GUI_SOURCE)
+        self.assertIn("Hide loot roll spam", AUTOLAZY_GUI_SOURCE)
 
         self.assertNotIn("AutoLazy_OptChat", AUTOLAZY_GUI_SOURCE)
         self.assertNotIn("Chat Roll Alerts", AUTOLAZY_GUI_SOURCE)
@@ -284,8 +250,8 @@ class AutoLazyTests(unittest.TestCase):
     # ==================================================
     # QUEST REQUIREMENTS (Cases 15 - 22)
     # ==================================================
-    def test_15_one_ordinary_available_quest_auto_selects_safely(self):
-        """15: Exactly one ordinary available quest is auto-selected safely."""
+    def test_15_single_available_quest_requires_manual_selection(self):
+        """15: A single available quest is left for manual acceptance."""
         extra = """
             selectedQuestID = nil
             C_GossipInfo.GetAvailableQuests = function()
@@ -300,11 +266,11 @@ class AutoLazyTests(unittest.TestCase):
 
         g.AutoLazy.SetQuestSessionActive(True)
         res = g.AutoLazy.ProcessGossip()
-        self.assertEqual(res, "ACTION")
-        self.assertEqual(g.selectedQuestID, 42)
+        self.assertFalse(res)
+        self.assertIsNone(g.selectedQuestID)
 
     def test_16_multiple_ordinary_available_quests_do_not_select_first(self):
-        """16: Multiple ordinary available quests do NOT auto-select quest 1 and wait for user."""
+        """16: Multiple ordinary available quests do NOT auto-select quest 1 and leave acceptance manual."""
         extra = """
             selectedQuestID = nil
             C_GossipInfo.GetAvailableQuests = function()
@@ -323,11 +289,11 @@ class AutoLazyTests(unittest.TestCase):
 
         g.AutoLazy.SetQuestSessionActive(True)
         res = g.AutoLazy.ProcessGossip()
-        self.assertEqual(res, "WAITING")
+        self.assertFalse(res)
         self.assertIsNone(g.selectedQuestID)
 
-    def test_17_multiple_quests_manual_select_keeps_session_alive_and_accepts(self):
-        """17: Manual selection of quest #2 keeps session alive and QUEST_DETAIL auto-accepts."""
+    def test_17_manual_selection_never_triggers_automatic_acceptance(self):
+        """17: A Shift-started session never automatically accepts QUEST_DETAIL."""
         extra = """
             accepted = false
             function AcceptQuest()
@@ -362,20 +328,20 @@ class AutoLazyTests(unittest.TestCase):
 
         # QUEST_DETAIL fires for the chosen quest
         ef.scripts["OnEvent"](ef, "QUEST_DETAIL")
-        self.assertTrue(g.accepted)
+        self.assertFalse(g.accepted)
 
-    def test_18_deterministic_repeatable_matching_auto_selects_even_when_not_first(self):
-        """18: Deterministic repeatable quest auto-selects correctly even when not first in list."""
+    def test_18_completed_repeatable_priority_preserved(self):
+        """18: Completed repeatable quests retain inventory-based turn-in priority."""
         extra = """
             selectedQuestID = nil
-            C_GossipInfo.GetAvailableQuests = function()
+            C_GossipInfo.GetActiveQuests = function()
                 return {
-                    { questID = 101, title = "Ordinary Quest" },
-                    { questID = 202, title = "Minion's Scourgestones" },
-                    { questID = 103, title = "Another Quest" },
+                    { questID = 101, title = "Ordinary Quest", isComplete = true },
+                    { questID = 202, title = "Minion's Scourgestones", isComplete = true },
+                    { questID = 103, title = "Another Quest", isComplete = true },
                 }
             end
-            C_GossipInfo.SelectAvailableQuest = function(id)
+            C_GossipInfo.SelectActiveQuest = function(id)
                 selectedQuestID = id
             end
             C_Item = {
@@ -472,13 +438,11 @@ class AutoLazyTests(unittest.TestCase):
             end
             gossipCalls = 0
             C_GossipInfo = {
-                GetActiveQuests = function() return {} end,
-                GetOptions = function() return {} end,
-                GetAvailableQuests = function()
+                GetActiveQuests = function()
                     gossipCalls = gossipCalls + 1
                     return {}
                 end,
-                SelectAvailableQuest = function(id) end,
+                GetOptions = function() return {} end,
             }
         """
         lua = create_autolazy_runtime(extra)
@@ -505,6 +469,224 @@ class AutoLazyTests(unittest.TestCase):
         # Delayed callback with stale token1 fires
         g.AutoLazy.TryQuestChain(token1)
         self.assertEqual(g.gossipCalls, initialCalls)
+
+    def test_removed_quest_settings_and_commands_cannot_reenable_features(self):
+        lua = create_autolazy_runtime('''
+            AutoLazyDB = { Quests = { AutoAccept = true, AlwaysActive = true,
+                Enabled = true, AutoTurnIn = false, SafeRewards = false } }
+        ''')
+        g = lua.globals()
+        self.assertEqual(set(g.AutoLazyDB.Quests.keys()), {"Enabled", "AutoTurnIn", "SafeRewards"})
+        self.assertFalse(g.AutoLazyDB.Quests.AutoTurnIn)
+        self.assertFalse(g.AutoLazyDB.Quests.SafeRewards)
+        self.assertFalse(g.AutoLazy.ShouldAutoQuest())
+        for command in ("accept", "always"):
+            g.SlashCmdList["AUTOLAZY"](command)
+        self.assertIsNone(g.AutoLazyDB.Quests.AutoAccept)
+        self.assertIsNone(g.AutoLazyDB.Quests.AlwaysActive)
+        help_message = list(g.chatMessages.values())[-1]
+        self.assertNotIn("/al accept", help_message)
+        self.assertNotIn("/al always", help_message)
+
+    def test_available_quest_apis_never_called_even_with_shift(self):
+        lua = create_autolazy_runtime('''
+            function IsShiftKeyDown() return true end
+            local function forbidden() error("Quest acceptance must stay manual") end
+            C_GossipInfo.GetAvailableQuests = forbidden
+            C_GossipInfo.SelectAvailableQuest = forbidden
+            GetNumAvailableQuests, GetAvailableTitle, SelectAvailableQuest = forbidden, forbidden, forbidden
+            AcceptQuest = forbidden
+            function GetNumActiveQuests() return 0 end
+        ''')
+        lua.execute('''
+            MockRunScript(AutoLazy_EventFrame, "OnEvent", "GOSSIP_SHOW")
+            MockRunScript(AutoLazy_EventFrame, "OnEvent", "QUEST_GREETING")
+            MockRunScript(AutoLazy_EventFrame, "OnEvent", "QUEST_DETAIL")
+        ''')
+        self.assertIsNone(lua.globals().AutoLazy_EventFrame.events["QUEST_DETAIL"])
+        self.assertFalse(lua.globals().AutoLazy.ProcessGossip())
+        self.assertFalse(lua.globals().AutoLazy.ProcessGreeting())
+
+    def test_new_nonshift_npc_dialog_clears_previous_shift_session(self):
+        for event_name in ("GOSSIP_SHOW", "QUEST_GREETING"):
+            with self.subTest(event=event_name):
+                lua = create_autolazy_runtime('''
+                    selected = nil
+                    C_GossipInfo.GetActiveQuests = function()
+                        return {{ questID = 101, title = "Ordinary Quest", isComplete = true }}
+                    end
+                    C_GossipInfo.SelectActiveQuest = function(id) selected = id end
+                    function GetNumActiveQuests() return 1 end
+                    function GetActiveTitle() return "Ordinary Quest", true end
+                    function SelectActiveQuest(index) selected = index end
+                ''')
+                g = lua.globals()
+                g.AutoLazy.SetQuestSessionActive(True)
+                g.MockRunScript(g.AutoLazy_EventFrame, "OnEvent", event_name)
+                self.assertFalse(g.AutoLazy.GetQuestSessionActive())
+                self.assertIsNone(g.selected)
+                lua.execute('function IsShiftKeyDown() return true end')
+                g.MockRunScript(g.AutoLazy_EventFrame, "OnEvent", event_name)
+                self.assertTrue(g.AutoLazy.GetQuestSessionActive())
+                self.assertIsNotNone(g.selected)
+
+    def test_quest_menu_loads_with_only_remaining_compact_controls(self):
+        lua = create_autolazy_runtime()
+        lua.execute(AUTOLAZY_GUI_SOURCE)
+        g = lua.globals()
+        g.AutoLazy_ToggleGUI()
+        g.MockRunScript(g.AutoLazy_BtnTab3, "OnClick")
+        self.assertTrue(g.AutoLazy_TabQuestsFrame.IsVisible(g.AutoLazy_TabQuestsFrame))
+        self.assertEqual(g.AutoLazyDB.SelectedTab, 3)
+        self.assertIsNone(g.AutoLazy_QuestAccept)
+        self.assertIsNone(g.AutoLazy_QuestAlways)
+        self.assertEqual(g.AutoLazy_QuestMasterText.text, "Enable Shift-click")
+        for widget_name, key in (("AutoLazy_QuestSafe", "SafeRewards"),
+                                 ("AutoLazy_QuestTurnIn", "AutoTurnIn"),
+                                 ("AutoLazy_QuestMaster", "Enabled")):
+            widget = g[widget_name]
+            self.assertTrue(widget.checked)
+            widget.SetChecked(widget, False)
+            g.MockRunScript(widget, "OnClick")
+            self.assertFalse(g.AutoLazyDB.Quests[key])
+            self.assertFalse(widget.checked)
+
+    def test_options_open_refreshes_widgets_once(self):
+        lua = create_autolazy_runtime()
+        lua.execute(AUTOLAZY_GUI_SOURCE)
+        lua.execute('''
+            guiUpdates = 0
+            local update = AutoLazy_UpdateGUI
+            AutoLazy_UpdateGUI = function() guiUpdates = guiUpdates + 1; update() end
+            AutoLazy_ToggleGUI()
+        ''')
+        self.assertEqual(lua.globals().guiUpdates, 1)
+        lua.execute('AutoLazy_ToggleGUI(); AutoLazy_ToggleGUI()')
+        self.assertEqual(lua.globals().guiUpdates, 2)
+
+    def test_ui_created_once_and_hidden_refresh_does_no_work(self):
+        lua = create_autolazy_runtime()
+        g = lua.globals()
+        count = g.MockFrameCount()
+        lua.execute(AUTOLAZY_GUI_SOURCE)
+        g.AutoLazy_UpdateGUI()
+        self.assertIsNone(g.AutoLazy_OptionsFrame)
+        self.assertEqual(g.MockFrameCount(), count)
+        g.AutoLazy_ToggleGUI()
+        built_count = g.MockFrameCount()
+        # Initial Minimap and Quests refreshes must not populate Loot rows.
+        self.assertIsNone(g.AutoLazy_ItemRow_1.iconTex.path)
+        g.MockRunScript(g.AutoLazy_BtnTab3, "OnClick")
+        self.assertIsNone(g.AutoLazy_ItemRow_1.iconTex.path)
+        g.AutoLazy_ToggleGUI()
+        g.AutoLazyDB.SelectedTab = 2
+        for _ in range(50):
+            g.AutoLazy_UpdateGUI()
+        self.assertIsNone(g.AutoLazy_ItemRow_1.iconTex.path)
+        g.AutoLazy_ToggleGUI()
+        self.assertIsNotNone(g.AutoLazy_ItemRow_1.iconTex.path)
+        self.assertEqual(g.MockFrameCount(), built_count)
+        self.assertNotIn("OnUpdate", AUTOLAZY_GUI_SOURCE)
+        self.assertNotIn("C_Timer", AUTOLAZY_GUI_SOURCE)
+
+    def test_ui_does_not_query_zone_and_status_is_slash_only(self):
+        lua = create_autolazy_runtime()
+        lua.execute('''
+            GetZoneText = function() error("GUI must not query the zone") end
+            AutoLazy_ResolveCurrentDungeon = GetZoneText
+        ''')
+        lua.execute(AUTOLAZY_GUI_SOURCE)
+        g = lua.globals()
+        g.AutoLazyDB.SelectedTab = 2
+        g.AutoLazy_ToggleGUI()
+        g.MockRunScript(g.AutoLazy_DungeonBtn_4, "OnClick")
+        g.AutoLazy_UpdateGUI()
+        self.assertIsNone(g.AutoLazy_BtnStatus)
+        self.assertNotIn("Zone:", AUTOLAZY_GUI_SOURCE)
+        self.assertNotIn("GetZoneText", AUTOLAZY_GUI_SOURCE)
+        self.assertNotIn("ResolveCurrentDungeon", AUTOLAZY_GUI_SOURCE)
+        self.assertEqual(g.AutoLazy_BtnTab1.text, "Minimap")
+        self.assertEqual(g.AutoLazy_OptionsFrame.backdropColor[4], 0.96)
+
+    def test_loot_grid_choices_are_exclusive_and_survive_native_toggle(self):
+        lua = create_autolazy_runtime()
+        lua.execute(AUTOLAZY_GUI_SOURCE)
+        g = lua.globals()
+        g.AutoLazyDB.SelectedTab = 2
+        g.AutoLazy_ToggleGUI()
+        g.MockRunScript(g.AutoLazy_DungeonBtn_4, "OnClick")
+        for i in range(1, 5):
+            row = g[f"AutoLazy_ItemRow_{i}"]
+            for action in ("MANUAL", "NEED", "GREED", "PASS", "PASS"):
+                button = row.actionButtons[action]
+                # Native CheckButton behavior happens before OnClick.
+                button.SetChecked(button, not button.GetChecked(button))
+                g.MockRunScript(button, "OnClick")
+                self.assertEqual(g.AutoLazyDB.ItemRules[row.ruleKey], action)
+                checked = [key for key in row.actionButtons.keys() if row.actionButtons[key].checked]
+                self.assertEqual(checked, [action])
+        # Changing dungeons reuses rows, hides unused rows and restores choices.
+        g.MockRunScript(g.AutoLazy_DungeonBtn_1, "OnClick")
+        self.assertFalse(g.AutoLazy_ItemRow_4.shown)
+        g.MockRunScript(g.AutoLazy_DungeonBtn_4, "OnClick")
+        self.assertTrue(g.AutoLazy_ItemRow_4.actionButtons.PASS.checked)
+
+    def test_quest_dependencies_dim_without_discarding_preferences(self):
+        lua = create_autolazy_runtime()
+        lua.execute(AUTOLAZY_GUI_SOURCE)
+        g = lua.globals()
+        g.AutoLazyDB.SelectedTab = 3
+        g.AutoLazy_ToggleGUI()
+        g.AutoLazy_QuestMaster.SetChecked(g.AutoLazy_QuestMaster, False)
+        g.MockRunScript(g.AutoLazy_QuestMaster, "OnClick")
+        self.assertFalse(g.AutoLazy_QuestTurnIn.enabled)
+        self.assertFalse(g.AutoLazy_QuestSafe.enabled)
+        self.assertTrue(g.AutoLazyDB.Quests.SafeRewards)
+        self.assertEqual(g.AutoLazy_QuestSafeText.font, "GameFontDisableSmall")
+        g.AutoLazy_QuestMaster.SetChecked(g.AutoLazy_QuestMaster, True)
+        g.MockRunScript(g.AutoLazy_QuestMaster, "OnClick")
+        self.assertTrue(g.AutoLazy_QuestTurnIn.enabled)
+        self.assertTrue(g.AutoLazy_QuestSafe.enabled)
+        g.AutoLazy_QuestTurnIn.SetChecked(g.AutoLazy_QuestTurnIn, False)
+        g.MockRunScript(g.AutoLazy_QuestTurnIn, "OnClick")
+        self.assertFalse(g.AutoLazy_QuestSafe.enabled)
+        self.assertTrue(g.AutoLazy_QuestSafe.checked)
+
+    def test_tab_resize_preserves_top_anchor_after_drag(self):
+        lua = create_autolazy_runtime()
+        lua.execute(AUTOLAZY_GUI_SOURCE)
+        g = lua.globals()
+        g.AutoLazy_ToggleGUI()
+        panel = g.AutoLazy_OptionsFrame
+        panel.left, panel.top = 600, 700
+        panel.SetScale(panel, 0.8)
+        g.UIParent.SetScale(g.UIParent, 1.25)
+        g.MockRunScript(panel, "OnDragStop")
+        point = panel.GetPoint(panel)
+        self.assertEqual(point[0], "TOPLEFT")
+        self.assertAlmostEqual(point[3], 480)
+        self.assertAlmostEqual(point[4], 560)
+        heights = []
+        for name in ("AutoLazy_BtnTab2", "AutoLazy_BtnTab3", "AutoLazy_BtnTab1"):
+            g.MockRunScript(g[name], "OnClick")
+            heights.append(panel.height)
+            current = panel.GetPoint(panel)
+            self.assertEqual(current[:1] + current[2:], point[:1] + point[2:])
+            self.assertTrue(lua.eval('select(2, AutoLazy_OptionsFrame:GetPoint()) == UIParent'))
+        self.assertLess(heights[1], heights[0])
+        self.assertTrue(all(height < 520 for height in heights))
+
+    def test_unchanged_loot_refresh_does_not_rewrite_item_content(self):
+        lua = create_autolazy_runtime()
+        lua.execute(AUTOLAZY_GUI_SOURCE)
+        g = lua.globals()
+        g.AutoLazyDB.SelectedTab = 2
+        g.AutoLazy_ToggleGUI()
+        lua.execute('''
+            AutoLazy_ItemRow_1.iconTex.SetTexture = function() error("Unexpected icon rewrite") end
+            AutoLazy_ItemRow_1.nameText.SetText = function() error("Unexpected item label rewrite") end
+            for i = 1, 20 do AutoLazy_UpdateGUI() end
+        ''')
 
     # ==================================================
     # UTILITY TESTS
@@ -551,51 +733,19 @@ class AutoLazyTests(unittest.TestCase):
         self.assertFalse(g.AutoLazy.MatchesRepeatableRequirement("Invader's Scourgestone"))
 
     def test_close_tray_restores_when_collapse_addons_false(self):
-        """Tray restores button states when collapse is disabled."""
-        lua = create_autolazy_runtime()
-        g = lua.globals()
-        lua.execute("""
-            AutoLazyDB.Tweaks.CollapseAddons = false
-            AutoLazy_ButtonTray.isShown = true
-            AutoLazy_ButtonTray.IsShown = function(self) return self.isShown end
-            AutoLazy_ButtonTray.Hide = function(self) self.isShown = false end
-            testBtnState = { shown = false }
-            AutoLazy_CollapseAddons = function(enable)
-                if not enable then
-                    testBtnState.shown = true
-                    AutoLazy_ButtonTray:Hide()
-                end
-            end
-        """)
-        g.AutoLazy_CloseTray()
-        self.assertTrue(g.testBtnState.shown)
-        self.assertFalse(g.AutoLazy_ButtonTray.isShown)
+        lua = create_autolazy_runtime('AutoLazyDB = { Tweaks = { CollapseAddons = false } }; testBtn = MockButton("GuildMinimapButton")')
+        lua.execute('AutoLazy_OpenTray(); AutoLazy_CloseTray()')
+        self.assertTrue(lua.eval('testBtn:IsShown()'))
+        self.assertFalse(lua.eval('AutoLazy_ButtonTray:IsShown()'))
+        self.assertTrue(lua.eval('select(2, testBtn:GetPoint(1)) == Minimap'))
 
-    def test_tray_full_interactivity_and_dismisser(self):
-        """Addon Tray enables mouse on buttons and dismisser closes tray."""
-        lua = create_autolazy_runtime(r"""
-            testBtn = CreateFrame("Button", "AtlasLootMinimapButton", Minimap)
-            testBtn.GetWidth = function() return 32 end
-            testBtn.GetHeight = function() return 32 end
-            testBtn.GetNormalTexture = function() return { GetTexture = function() return "Interface\\Icons\\INV_Box_01" end } end
-        """)
-        g = lua.globals()
-        lua.execute(AUTOLAZY_SOURCE)
-        lua.execute(r"""
-            AutoLazy_TrayDismisser.Show = function(self) self.isShown = true end
-            AutoLazy_TrayDismisser.Hide = function(self) self.isShown = false end
-            AutoLazy_TrayDismisser.IsShown = function(self) return self.isShown == true end
-            AutoLazy_ButtonTray.Show = function(self) self.isShown = true end
-            AutoLazy_ButtonTray.Hide = function(self) self.isShown = false end
-            AutoLazy_ButtonTray.IsShown = function(self) return self.isShown == true end
-
-            AutoLazy_OpenTray()
-            dismisserShown = AutoLazy_TrayDismisser:IsShown()
-            AutoLazy_TrayDismisser.scripts.OnClick()
-            trayHiddenAfterClick = not AutoLazy_ButtonTray:IsShown()
-        """)
-        self.assertTrue(g.dismisserShown, "Dismisser must show when tray opens")
-        self.assertTrue(g.trayHiddenAfterClick, "Clicking dismisser must close tray")
+    def test_tray_full_interactivity_and_outside_click(self):
+        lua = create_autolazy_runtime('testBtn = MockButton("GuildMinimapButton")')
+        lua.execute('AutoLazy_OpenTray()')
+        self.assertTrue(lua.eval('testBtn:IsMouseEnabled() and testBtn:IsVisible()'))
+        self.assertIsNone(lua.globals().AutoLazy_TrayDismisser)
+        lua.execute('MockRunScript(AutoLazy_TrayController, "OnEvent", "GLOBAL_MOUSE_UP"); MockFlushTimers()')
+        self.assertFalse(lua.eval('AutoLazy_ButtonTray:IsShown()'))
 
     def test_gossip_turn_in_keywords_and_bijous(self):
         """Direct gossip turn-ins match exact item IDs including ZG bijou destruction."""
@@ -757,10 +907,10 @@ class AutoLazyTests(unittest.TestCase):
         # 9. ProcessGossip selects 40739 over 40740 when only 40739 requirements are met
         set_inv(3, 1)
         selected_id = []
-        g.C_GossipInfo.SelectAvailableQuest = lambda qid: selected_id.append(qid)
-        g.C_GossipInfo.GetAvailableQuests = lambda: lua.table_from([
-            lua.table_from({"questID": 40740, "title": q40740_title}),
-            lua.table_from({"questID": 40739, "title": q40739_title}),
+        g.C_GossipInfo.SelectActiveQuest = lambda qid: selected_id.append(qid)
+        g.C_GossipInfo.GetActiveQuests = lambda: lua.table_from([
+            lua.table_from({"questID": 40740, "title": q40740_title, "isComplete": True}),
+            lua.table_from({"questID": 40739, "title": q40739_title, "isComplete": True}),
         ])
         g.AutoLazy.SetQuestSessionActive(True)
         res = g.AutoLazy.ProcessGossip()
@@ -770,9 +920,9 @@ class AutoLazyTests(unittest.TestCase):
         # 10. ProcessGreeting selects 40739 over 40740 via exact title fallback when only 40739 met
         set_inv(3, 1)
         selected_greet_idx = []
-        g.GetNumAvailableQuests = lambda: 2
-        g.GetAvailableTitle = lambda idx: [q40740_title, q40739_title][idx - 1]
-        g.SelectAvailableQuest = lambda idx: selected_greet_idx.append(idx)
+        g.GetNumActiveQuests = lambda: 2
+        g.GetActiveTitle = lambda idx: ([q40740_title, q40739_title][idx - 1], True)
+        g.SelectActiveQuest = lambda idx: selected_greet_idx.append(idx)
         g.AutoLazy.SetQuestSessionActive(True)
         res_greet = g.AutoLazy.ProcessGreeting()
         self.assertEqual(res_greet, "ACTION")
@@ -785,12 +935,12 @@ class AutoLazyTests(unittest.TestCase):
 
         g.AutoLazy_PrintStatus()
         all_msgs1 = "\n".join(list(g.chatMessages.values()))
-        self.assertIn("Clean Roll: |cFF00FF00ON|r", all_msgs1)
+        self.assertIn("Hide loot roll spam: |cFF00FF00ON|r", all_msgs1)
 
         g.AutoLazyDB.CleanRollChat = False
         g.AutoLazy_PrintStatus()
         all_msgs2 = "\n".join(list(g.chatMessages.values()))
-        self.assertIn("Clean Roll: |cFFFF2020OFF|r", all_msgs2)
+        self.assertIn("Hide loot roll spam: |cFFFF2020OFF|r", all_msgs2)
 
     def test_winterspring_eko_repeatable_requirements(self):
         """Winterspring E'ko requirements match 3x items with correct item IDs."""
@@ -834,10 +984,10 @@ class AutoLazyTests(unittest.TestCase):
         inventory.clear()
         inventory[12431] = 3
         selected_id = []
-        g.C_GossipInfo.SelectAvailableQuest = lambda qid: selected_id.append(qid)
-        g.C_GossipInfo.GetAvailableQuests = lambda: lua.table_from([
-            lua.table_from({"questID": 4806, "title": "Frostmaul E'ko"}),
-            lua.table_from({"questID": 4802, "title": "Winterfall E'ko"}),
+        g.C_GossipInfo.SelectActiveQuest = lambda qid: selected_id.append(qid)
+        g.C_GossipInfo.GetActiveQuests = lambda: lua.table_from([
+            lua.table_from({"questID": 4806, "title": "Frostmaul E'ko", "isComplete": True}),
+            lua.table_from({"questID": 4802, "title": "Winterfall E'ko", "isComplete": True}),
         ])
         g.AutoLazy.SetQuestSessionActive(True)
         res = g.AutoLazy.ProcessGossip()
@@ -951,11 +1101,11 @@ class AutoLazyTests(unittest.TestCase):
         g.inv_counts = inventory
 
         selected_id = []
-        g.C_GossipInfo.SelectAvailableQuest = lambda qid: selected_id.append(qid)
-        # Dronormu offers single turn-in first in list, bulk second
-        g.C_GossipInfo.GetAvailableQuests = lambda: lua.table_from([
-            lua.table_from({"questID": 40340, "title": "Corrupted Sand"}),
-            lua.table_from({"questID": 40341, "title": "Sand in Bulk"}),
+        g.C_GossipInfo.SelectActiveQuest = lambda qid: selected_id.append(qid)
+        # Both accepted quests are completed; bulk is second in the list
+        g.C_GossipInfo.GetActiveQuests = lambda: lua.table_from([
+            lua.table_from({"questID": 40340, "title": "Corrupted Sand", "isComplete": True}),
+            lua.table_from({"questID": 40341, "title": "Sand in Bulk", "isComplete": True}),
         ])
         g.AutoLazy.SetQuestSessionActive(True)
 
@@ -989,11 +1139,13 @@ class AutoLazyTests(unittest.TestCase):
 
     def test_menu_tab_renamed_to_loot(self):
         """Part 1: Menu Tab 2 is named 'Loot' (not 'Loot & Dungeons')."""
-        self.assertIn('btnTab2:SetText("Loot")', AUTOLAZY_GUI_SOURCE)
-        self.assertNotIn('btnTab2:SetText("Loot & Dungeons")', AUTOLAZY_GUI_SOURCE)
+        lua = create_autolazy_runtime()
+        lua.execute(AUTOLAZY_GUI_SOURCE)
+        lua.globals().AutoLazy_ToggleGUI()
+        self.assertEqual(lua.globals().AutoLazy_BtnTab2.text, "Loot")
 
     def test_octowow_pirate_radio_and_lft_buttons_handling(self):
-        """Part 2: EBC_Minimap and LFTMinimapButton are correctly classified and excluded from Addon Tray."""
+        """Custom launcher classification and dedicated reversible suppression."""
         lua = create_autolazy_runtime(r"""
             ebc = CreateFrame("Button", "EBC_Minimap", Minimap)
             ebc.point = "TOPLEFT"
@@ -1027,7 +1179,6 @@ class AutoLazyTests(unittest.TestCase):
                 }
             end
         """)
-        lua.execute(AUTOLAZY_SOURCE)
 
         res = lua.execute(r"""
             local isRadio = AutoLazy.IsRadioFrame(ebc)
@@ -1053,17 +1204,12 @@ class AutoLazyTests(unittest.TestCase):
             AutoLazy.SetFrameSuppressed(ebc, false)
             AutoLazy.SetFrameSuppressed(lft, false)
         """)
-        st_ebc = lua.eval("ebc._alOrigState")
-        st_lft = lua.eval("lft._alOrigState")
-        self.assertEqual(st_ebc["point"], "TOPLEFT")
-        self.assertEqual(st_ebc["relativePoint"], "TOPLEFT")
-        self.assertEqual(st_ebc["xOfs"], -20)
-        self.assertEqual(st_ebc["yOfs"], -36)
-
-        self.assertEqual(st_lft["point"], "LEFT")
-        self.assertEqual(st_lft["relativePoint"], "LEFT")
-        self.assertEqual(st_lft["xOfs"], -22)
-        self.assertEqual(st_lft["yOfs"], -14)
+        # Collapse still suppresses custom icons after their dedicated hide
+        # flags are disabled; turning collapse off restores their native state.
+        lua.globals().AutoLazy_CollapseAddons(False)
+        self.assertTrue(lua.eval('ebc:IsShown() and lft:IsShown()'))
+        self.assertEqual(lua.eval('select(4, ebc:GetPoint(1))'), (-20, -36))
+        self.assertEqual(lua.eval('select(4, lft:GetPoint(1))'), (-22, -14))
 
     def test_universal_dynamic_minimap_button_discovery(self):
         """Dynamic scanner identifies minimap buttons regardless of addon name, parentage (Minimap/UIParent), or keywords."""
@@ -1121,7 +1267,6 @@ class AutoLazyTests(unittest.TestCase):
             btn_close.GetNumPoints = function() return 1 end
             btn_close.GetNormalTexture = function() return { GetTexture = function() return "Interface\\Buttons\\UI-Panel-MinimizeButton-Up" end } end
         """)
-        lua.execute(AUTOLAZY_SOURCE)
 
         res = lua.execute(r"""
             return AutoLazy.IsValidAddonButton(btn_itemrack),
@@ -1141,8 +1286,8 @@ class AutoLazyTests(unittest.TestCase):
         self.assertFalse(v_action, "ActionButton1 must NOT be valid")
         self.assertFalse(v_close, "Close button must NOT be valid")
 
-    def test_radio_and_lft_never_swallowed_into_addon_tray(self):
-        """Even when HideRadio=false and HideLfg=false, Radio and LFT buttons are never in the Addon Tray."""
+    def test_radio_and_lft_available_when_dedicated_hide_flags_disabled(self):
+        """Radio and LFT are available in the tray unless their hide flags are enabled."""
         lua = create_autolazy_runtime(r"""
             ebc = CreateFrame("Button", "EBC_Minimap", Minimap)
             ebc.GetWidth = function() return 33 end
@@ -1167,7 +1312,6 @@ class AutoLazyTests(unittest.TestCase):
 
             Minimap.GetChildren = function() return ebc, lft, valid_addon end
         """)
-        lua.execute(AUTOLAZY_SOURCE)
 
         lua.execute(r"""
             AutoLazyDB.Tweaks.HideRadio = false
@@ -1175,26 +1319,26 @@ class AutoLazyTests(unittest.TestCase):
             buttons = AutoLazy_FindAddonButtons()
         """)
         buttons_count = lua.eval("#buttons")
-        self.assertEqual(buttons_count, 1, "Only the 3rd-party user addon should be found")
+        self.assertEqual(buttons_count, 3, "Custom client launchers should also be available")
         first_btn_name = lua.eval("buttons[1]:GetName()")
-        self.assertEqual(first_btn_name, "MyGuildAddonMinimapButton")
+        self.assertEqual(first_btn_name, "EBC_Minimap")
 
-    def test_unnamed_and_dangling_frames_safe_against_crash(self):
-        """Unnamed buttons and dangling anchor throws are rejected and protected against Error 132 crashes."""
+    def test_unrelated_unnamed_buttons_and_lua_getter_errors_rejected(self):
+        """Reject unrelated buttons and handle Lua getter errors without frame-tree traversal."""
         lua = create_autolazy_runtime(r"""
             -- Button with no name (unnamed scratch widget)
             unnamed_btn = CreateFrame("Button", nil, UIParent)
             unnamed_btn.GetWidth = function() return 32 end
             unnamed_btn.GetHeight = function() return 32 end
-            unnamed_btn.GetPoint = function() error("dangling anchor C++ fault simulated") end
+            unnamed_btn.GetPoint = function() error("unsupported Lua anchor getter") end
             unnamed_btn.GetNumPoints = function() return 1 end
 
             -- Button whose GetPoint throws an error
             throwing_btn = CreateFrame("Button", "BuggyAddonMinimapButton", Minimap)
             throwing_btn.GetWidth = function() return 32 end
             throwing_btn.GetHeight = function() return 32 end
-            throwing_btn.GetPoint = function() error("Simulated dangling anchor fault") end
-            throwing_btn.GetNumPoints = function() error("Simulated vtable null fault") end
+            throwing_btn.GetPoint = function() error("unsupported Lua anchor getter") end
+            throwing_btn.GetNumPoints = function() error("unsupported Lua point count getter") end
             throwing_btn.GetNormalTexture = function() return { GetTexture = function() return "Interface\\Icons\\INV_Misc_QuestionMark" end } end
 
             -- Button on UIParent (must NOT be scanned via UIParent:GetChildren)
@@ -1210,7 +1354,6 @@ class AutoLazyTests(unittest.TestCase):
             end
             Minimap.GetChildren = function() return throwing_btn end
         """)
-        lua.execute(AUTOLAZY_SOURCE)
 
         res = lua.execute(r"""
             local v_unnamed = AutoLazy.IsValidAddonButton(unnamed_btn)
@@ -1220,8 +1363,8 @@ class AutoLazyTests(unittest.TestCase):
         """)
         v_unnamed, v_anchored_throw, uiparent_scanned, btn_count = res
 
-        self.assertFalse(v_unnamed, "Unnamed button must be rejected immediately to avoid scratch frame vtable dereference")
-        self.assertFalse(v_anchored_throw, "Throwing GetPoint/GetNumPoints must be caught safely by pcall")
+        self.assertFalse(v_unnamed, "Unrelated anonymous button lacks minimap launcher evidence")
+        self.assertFalse(v_anchored_throw, "Lua GetPoint/GetNumPoints errors should be handled by pcall")
         self.assertFalse(uiparent_scanned, "UIParent:GetChildren must NEVER be scanned during button discovery")
 
 

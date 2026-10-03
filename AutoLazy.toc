@@ -1,12 +1,13 @@
 ## Interface: 11200
 ## X-ClassicAPI-Min-Version: 1.15.15
 ## Title: AutoLazy
-## Notes: High-performance dungeon loot automation, continuous repeatable quest turn-ins, Floating Addon Tray, and Reversible System Bloat Suppression (ClassicAPI v1.15.15+).
+## Notes: Loot automation, Shift-click quest turn-ins, and a reversible minimap addon tray (ClassicAPI v1.15.15+).
 ## Author: Fostercare5988
-## Version: 3.7.0
+## Version: 3.8.0
 ## SavedVariables: AutoLazyDB
 ## X-Category: Automation & Quality of Life
 ## X-Website: https://github.com/Fostercare5988/AutoLazy
 
 AutoLazy.lua
+AutoLazy_MinimapTray.lua
 AutoLazy_GUI.lua

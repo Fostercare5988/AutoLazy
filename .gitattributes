@@ -1,0 +1,6 @@
+# Keep developer files out of addon downloads.
+.dev export-ignore
+.dev/** export-ignore
+.gitattributes export-ignore
+.gitignore export-ignore
+.dev/** linguist-vendored
