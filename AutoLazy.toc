@@ -1,0 +1,13 @@
+## Interface: 11200
+## X-ClassicAPI-Min-Version: 1.15.15
+## Title: AutoLazy
+## Notes: Loot automation, Shift-click quest turn-ins, and a reversible minimap addon tray (ClassicAPI v1.15.15+).
+## Author: Fostercare5988
+## Version: 1.0.0
+## SavedVariables: AutoLazyDB
+## X-Category: Automation & Quality of Life
+## X-Website: https://github.com/Fostercare5988/AutoLazy
+
+AutoLazy.lua
+AutoLazy_MinimapTray.lua
+AutoLazy_GUI.lua
