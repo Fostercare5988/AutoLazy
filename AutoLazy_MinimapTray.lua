@@ -30,7 +30,7 @@ local excluded = {
 }
 local known = {
     AtlasButton = true, AtlasMinimapButton = true, pfQuestIcon = true,
-    ItemRack_IconFrame = true, TrinketMenu_IconFrame = true,
+    GearRackMinimapButton = true,
     SW_IconFrame = true, AutoBG_QuickQueueButton = true,
 }
 local radioNames = {
