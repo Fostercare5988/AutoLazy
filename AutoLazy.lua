@@ -1,5 +1,5 @@
 --[[
-    AutoLazy v1.0.0
+    AutoLazy v1.1.0
     Author & Maintainer: Fostercare5988
     Target: World of Warcraft 1.12.1 (Vanilla Enhanced Stack: ClassicAPI v1.15.15+)
     Description: Dungeon loot automation, Shift-click quest turn-ins, and a reversible minimap addon tray.
@@ -399,18 +399,132 @@ end
 local questSessionActive = false
 local currentQuestSessionToken = 0
 local activeNpcGUID = nil
+local questClickMode = false
+local clickedQuest
+
+local function QuestNpcGUID()
+    return (UnitGUID and (UnitGUID("npc") or UnitGUID("target"))) or nil
+end
+
+local function ClearQuestClick()
+    if clickedQuest and clickedQuest.timeout then clickedQuest.timeout:Cancel() end
+    clickedQuest = nil
+end
+
+function AutoLazy.CancelQuestTurnIn()
+    if questClickMode then
+        ClearQuestClick()
+        questSessionActive = false
+    end
+end
 
 local function ShouldAutoQuest()
     if not AutoLazyDB or not AutoLazyDB.Quests or not AutoLazyDB.Quests.Enabled then return false end
+    if questClickMode then return clickedQuest ~= nil end
     if questSessionActive then return true end
     return (IsShiftKeyDown and IsShiftKeyDown()) and true or false
 end
 
 local function StartQuestSession()
-    activeNpcGUID = (UnitGUID and (UnitGUID("npc") or UnitGUID("target"))) or nil
+    local npc = QuestNpcGUID()
+    if questClickMode then
+        ClearQuestClick()
+        -- A returned list waits for another explicit click. A fresh ordinary
+        -- interaction or another NPC resumes the established Shift behavior.
+        if npc ~= activeNpcGUID or not IsShiftKeyDown() then questClickMode = false end
+    end
+    activeNpcGUID = npc
     currentQuestSessionToken = currentQuestSessionToken + 1
     questSessionActive = AutoLazyDB and AutoLazyDB.Quests and
-        AutoLazyDB.Quests.Enabled and IsShiftKeyDown() and true or false
+        AutoLazyDB.Quests.Enabled and IsShiftKeyDown() and not questClickMode and true or false
+end
+
+local function BeginQuestClick(button, gossip)
+    if not button or not button:IsVisible() or not IsShiftKeyDown()
+        or not AutoLazyDB or not AutoLazyDB.Quests or not AutoLazyDB.Quests.Enabled
+        or not AutoLazyDB.Quests.AutoTurnIn or clickedQuest then return false end
+    local index = button:GetID()
+    if type(index) ~= "number" or index < 1 or index ~= math.floor(index) then return false end
+    local title, questID
+    if gossip then
+        if button.type ~= "Active" and button.type ~= "Available" then return false end
+        local active, available = C_GossipInfo.GetActiveQuests(), C_GossipInfo.GetAvailableQuests()
+        local list = button.type == "Active" and active or available
+        local quest = list and list[index]
+        if not quest or not quest.questID then return false end
+        title, questID = quest.title, quest.questID
+        -- The current progress/reward title is native; no current quest-ID
+        -- accessor exists here. Refuse indistinguishable titles at this NPC.
+        for _, entries in ipairs({active, available}) do
+            for _, other in ipairs(entries) do
+                if other.title == title and other.questID ~= questID then return false end
+            end
+        end
+    else
+        if button.isActive == 1 then title = GetActiveTitle(index)
+        elseif button.isActive == 0 then title = GetAvailableTitle(index)
+        else return false end
+        local matches = 0
+        for i = 1, GetNumActiveQuests() do if GetActiveTitle(i) == title then matches = matches + 1 end end
+        for i = 1, GetNumAvailableQuests() do if GetAvailableTitle(i) == title then matches = matches + 1 end end
+        if matches ~= 1 then return false end
+    end
+    local npc = QuestNpcGUID()
+    if type(title) ~= "string" or title == "" or not npc then return false end
+    currentQuestSessionToken = currentQuestSessionToken + 1
+    activeNpcGUID, questSessionActive, questClickMode = npc, true, true
+    local selection = { title = title, questID = questID, npc = npc, phase = "selected" }
+    clickedQuest = selection
+    -- One outstanding user request; no retry loop or queued spam clicks.
+    selection.timeout = C_Timer.NewTimer(5, function()
+        if clickedQuest == selection then ClearQuestClick(); questSessionActive = false end
+    end)
+    return true
+end
+
+local function OwnQuestClick()
+    local selection = clickedQuest
+    if not selection then return nil end
+    if not AutoLazyDB.Quests.Enabled or not AutoLazyDB.Quests.AutoTurnIn
+        or QuestNpcGUID() ~= selection.npc or GetTitleText() ~= selection.title then
+        ClearQuestClick()
+        questSessionActive = false
+        return nil
+    end
+    return selection
+end
+
+local questClickHooks = {}
+local function InstallQuestClicks()
+    for _, entry in ipairs({{"GossipTitleButton_OnClick", true}, {"QuestTitleButton_OnClick", false}}) do
+        local name, gossip = entry[1], entry[2]
+        local original = _G[name]
+        if not questClickHooks[name] and type(original) == "function" then
+            questClickHooks[name] = true
+            _G[name] = function(...)
+                if arg1 == "RightButton" then
+                    if not BeginQuestClick(this, gossip) then return end
+                elseif questClickMode then
+                    -- Ordinary/native programmatic left clicks keep their own
+                    -- behavior and cannot inherit a prior right-click request.
+                    ClearQuestClick()
+                    questClickMode, questSessionActive, activeNpcGUID = false, false, nil
+                    currentQuestSessionToken = currentQuestSessionToken + 1
+                end
+                -- Keep XML handlers and other addons' global hook chain intact.
+                return original(...)
+            end
+        end
+    end
+    for _, entry in ipairs({{"GossipTitleButton", NUMGOSSIPBUTTONS or 32}, {"QuestTitleButton", MAX_NUM_QUESTS or 32}}) do
+        for index = 1, entry[2] do
+            local button = _G[entry[1] .. index]
+            if button and not button.autoLazyQuestClicks then
+                button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+                button.autoLazyQuestClicks = true
+            end
+        end
+    end
 end
 
 function AutoLazy_PrintStatus()
@@ -821,6 +935,7 @@ local function MatchesGossipTurnIn(text)
 end
 
 local function ProcessGossip()
+    if questClickMode then return false end
     if not ShouldAutoQuest() then return false end
     local hasWaitingQuests = false
 
@@ -877,6 +992,7 @@ local function ProcessGossip()
 end
 
 local function ProcessGreeting()
+    if questClickMode then return false end
     if not ShouldAutoQuest() then return false end
     local hasWaitingQuests = false
 
@@ -915,6 +1031,7 @@ end
 
 local function TryQuestChain(token)
     if token and token ~= currentQuestSessionToken then return end
+    if questClickMode then return end
     if not (GossipFrame and GossipFrame:IsShown()) and not (QuestFrameGreetingPanel and QuestFrameGreetingPanel:IsShown()) then
         questSessionActive = false
         activeNpcGUID = nil
@@ -965,6 +1082,7 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
 
     if (ev == "ADDON_LOADED" and a1 == addonName) or ev == "VARIABLES_LOADED" then
         InitDB()
+        InstallQuestClicks()
         HookChatFrameEvents()
         UpdateZoneCache()
         AutoLazy_UpdateActionButton()
@@ -1034,6 +1152,9 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
             local currentGuid = (UnitGUID and (UnitGUID("npc") or UnitGUID("target"))) or nil
             if currentGuid ~= activeNpcGUID then
                 questSessionActive = false
+                ClearQuestClick()
+                -- Keep explicit mode idle so late quest events cannot reuse
+                -- Shift as permission after this request was cancelled.
                 activeNpcGUID = nil
                 currentQuestSessionToken = currentQuestSessionToken + 1
             end
@@ -1041,6 +1162,7 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
 
     -- Shift-initiated quest turn-ins; accepting quests remains manual.
     elseif ev == "GOSSIP_SHOW" then
+        InstallQuestClicks()
         StartQuestSession()
         ProcessGossip()
 
@@ -1050,19 +1172,36 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
             if token == currentQuestSessionToken then
                 if not (GossipFrame and GossipFrame:IsShown()) and not (QuestFrame and QuestFrame:IsShown()) then
                     questSessionActive = false
-                    activeNpcGUID = nil
+                    ClearQuestClick()
+                    -- A late returned menu is indistinguishable from another
+                    -- greeting at this NPC. Retain explicit ownership until a
+                    -- left click, a non-Shift greeting or a different NPC.
+                    if not questClickMode then activeNpcGUID = nil end
                 end
             end
         end)
 
     elseif ev == "QUEST_GREETING" then
+        InstallQuestClicks()
         StartQuestSession()
         ProcessGreeting()
 
     elseif ev == "QUEST_PROGRESS" then
-        if ShouldAutoQuest() and AutoLazyDB.Quests.AutoTurnIn and IsQuestCompletable() then CompleteQuest() end
+        if questClickMode then
+            local selection = OwnQuestClick()
+            if selection and selection.phase == "selected" and IsQuestCompletable() then
+                selection.phase = "progress"
+                CompleteQuest()
+            end
+        elseif ShouldAutoQuest() and AutoLazyDB.Quests.AutoTurnIn and IsQuestCompletable() then CompleteQuest() end
 
     elseif ev == "QUEST_COMPLETE" then
+        local selection
+        if questClickMode then
+            selection = OwnQuestClick()
+            if not selection or (selection.phase ~= "selected" and selection.phase ~= "progress") then return end
+            selection.phase = "reward"
+        end
         if ShouldAutoQuest() and AutoLazyDB.Quests.AutoTurnIn then
             local choices = GetNumQuestChoices()
             if not choices or choices == 0 then
@@ -1077,6 +1216,11 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
         end
 
     elseif ev == "QUEST_FINISHED" then
+        if questClickMode then
+            ClearQuestClick()
+            questSessionActive = false
+            return
+        end
         -- Fast chain-trigger for repeatable turn-ins (e.g. E'ko, Scourgestones, Bijous, Dark Iron Residue)
         if ShouldAutoQuest() then
             local token = currentQuestSessionToken
@@ -1122,11 +1266,13 @@ local slashToggles = {
 
     quest = function()
         AutoLazyDB.Quests.Enabled = not AutoLazyDB.Quests.Enabled
+        if not AutoLazyDB.Quests.Enabled then AutoLazy.CancelQuestTurnIn() end
         AutoLazy_Print("Shift-click Quest Turn-ins: " .. (AutoLazyDB.Quests.Enabled and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
         if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end
     end,
     turnin = function()
         AutoLazyDB.Quests.AutoTurnIn = not AutoLazyDB.Quests.AutoTurnIn
+        if not AutoLazyDB.Quests.AutoTurnIn then AutoLazy.CancelQuestTurnIn() end
         AutoLazy_Print("Auto Turn-In: " .. (AutoLazyDB.Quests.AutoTurnIn and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
         if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end
     end,

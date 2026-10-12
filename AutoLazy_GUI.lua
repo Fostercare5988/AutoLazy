@@ -373,18 +373,20 @@ local function CreateOptions()
     -- Quests: keep existing settings and dim dependent choices when disabled.
     Label(tabQuests, "Quest turn-ins", 28, -98)
     local cbQuestMaster = Checkbox("AutoLazy_QuestMaster", tabQuests, "Enable Shift-click",
-        "Hold Shift when talking to an NPC to start quest turn-ins and supported gossip shortcuts.", 28, -128, function(value)
+        "Hold Shift when talking to an NPC for turn-ins and supported gossip shortcuts. Shift-right-click a quest name to turn in that selected quest once.", 28, -128, function(value)
             AutoLazyDB.Quests.Enabled = value
+            if not value then AutoLazy.CancelQuestTurnIn() end
         end, 300)
     local cbQuestTurnIn = Checkbox("AutoLazy_QuestTurnIn", tabQuests, "Turn in completed quests",
-        "Complete accepted quests during the Shift session. Choose a quest when several ordinary quests are ready.", 44, -162, function(value)
+        "Complete accepted quests during the Shift session. Shift-right-click a quest name for one selected turn-in, including repeatables that open directly to their progress dialog.", 44, -162, function(value)
             AutoLazyDB.Quests.AutoTurnIn = value
+            if not value then AutoLazy.CancelQuestTurnIn() end
         end, 300)
     local cbQuestSafe = Checkbox("AutoLazy_QuestSafe", tabQuests, "Choose rewards manually",
         "Pause if multiple rewards are offered. Turning this off selects the first reward automatically.", 44, -196, function(value)
             AutoLazyDB.Quests.SafeRewards = value
         end, 300)
-    Label(tabQuests, "Hold Shift when talking to an NPC.\nNew quests are accepted manually.", 28, -232, "GameFontDisableSmall")
+    Label(tabQuests, "Shift-right-click a quest name: one selected turn-in per click.\nNew quests are accepted manually.", 28, -232, "GameFontDisableSmall")
     local function RefreshQuests()
         local quests = AutoLazyDB.Quests
         Sync(cbQuestMaster, quests.Enabled)
