@@ -1,6 +1,6 @@
--- AutoLazy options, WoW 1.12.1 / ClassicAPI 1.15.15+.
+-- AutoLazy options, WoW 1.12.1 / ClassicAPI 1.16.0+.
 -- Author & Maintainer: Fostercare5988
-if type(CLASSIC_API_VERSION) ~= "number" or CLASSIC_API_VERSION < 11515 then return end
+if type(CLASSIC_API_VERSION) ~= "number" or CLASSIC_API_VERSION < 11600 then return end
 
 local panel, Refresh
 

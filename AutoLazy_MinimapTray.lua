@@ -1,4 +1,4 @@
--- AutoLazy minimap tray, WoW 1.12.1 Build 5875 / ClassicAPI 1.15.15+.
+-- AutoLazy minimap tray, WoW 1.12.1 Build 5875 / ClassicAPI 1.16.0+.
 -- Discovery uses Lua references only. Never enumerate the engine frame tree.
 -- Native parents and foreign click/hover/drag scripts remain untouched.
 if not AutoLazy then return end
