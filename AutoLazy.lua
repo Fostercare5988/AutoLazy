@@ -388,6 +388,13 @@ local currentQuestSessionToken = 0
 local activeNpcGUID = nil
 local questClickMode = false
 local clickedQuest
+local openedMenus = {}
+
+-- [SOURCE-VERIFIED] ClassicAPI Input: the L/R functions are reconciled when
+-- WoW regains focus; stock IsShiftKeyDown can stay down after Alt-Tab.
+local function ShiftDown()
+    return (IsLeftShiftKeyDown() or IsRightShiftKeyDown()) and true or false
+end
 
 local function QuestNpcGUID()
     return (UnitGUID and (UnitGUID("npc") or UnitGUID("target"))) or nil
@@ -409,7 +416,7 @@ local function ShouldAutoQuest()
     if not AutoLazyDB or not AutoLazyDB.Quests or not AutoLazyDB.Quests.Enabled then return false end
     if questClickMode then return clickedQuest ~= nil end
     if questSessionActive then return true end
-    return (IsShiftKeyDown and IsShiftKeyDown()) and true or false
+    return ShiftDown()
 end
 
 local function StartQuestSession()
@@ -418,16 +425,17 @@ local function StartQuestSession()
         ClearQuestClick()
         -- A returned list waits for another explicit click. A fresh ordinary
         -- interaction or another NPC resumes the established Shift behavior.
-        if npc ~= activeNpcGUID or not IsShiftKeyDown() then questClickMode = false end
+        if npc ~= activeNpcGUID or not ShiftDown() then questClickMode = false end
     end
+    if npc ~= activeNpcGUID then table.wipe(openedMenus) end
     activeNpcGUID = npc
     currentQuestSessionToken = currentQuestSessionToken + 1
     questSessionActive = AutoLazyDB and AutoLazyDB.Quests and
-        AutoLazyDB.Quests.Enabled and IsShiftKeyDown() and not questClickMode and true or false
+        AutoLazyDB.Quests.Enabled and ShiftDown() and not questClickMode and true or false
 end
 
 local function BeginQuestClick(button, gossip)
-    if not button or not button:IsVisible() or not IsShiftKeyDown()
+    if not button or not button:IsVisible() or not ShiftDown()
         or not AutoLazyDB or not AutoLazyDB.Quests or not AutoLazyDB.Quests.Enabled
         or not AutoLazyDB.Quests.AutoTurnIn or clickedQuest then return false end
     local index = button:GetID()
@@ -909,7 +917,7 @@ local function MatchesGossipTurnIn(text)
     for _, g in ipairs(GossipTurnInKeywords) do
         if string.find(lowerText, g.match, 1, true) then
             if g.opener then
-                return true
+                return true, true
             elseif g.item then
                 local count = GetPlayerItemCount(g.item)
                 if count >= (g.minCount or 1) then
@@ -960,7 +968,11 @@ local function ProcessGossip()
             for i = 1, #options do
                 local opt = options[i]
                 local optName = opt.name or opt.title
-                if optName and MatchesGossipTurnIn(optName) then
+                local matched, opener = MatchesGossipTurnIn(optName)
+                -- A submenu can lead back to this list. Open each one once per
+                -- NPC so a held Shift cannot select it over and over.
+                if matched and not (opener and openedMenus[optName]) then
+                    if opener then openedMenus[optName] = true end
                     if opt.gossipOptionID then
                         C_GossipInfo.SelectOption(opt.gossipOptionID)
                     else
