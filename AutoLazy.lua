@@ -35,25 +35,25 @@ local DungeonDefinitions = {
         key = "The Black Morass",
         title = "The Black Morass",
         itemDesc = "Corrupted Sand",
-        aliases = { "the black morass", "black morass", "opening of the dark portal", "dark portal" },
+        aliases = { "opening of the dark portal" },
     },
     {
         key = "Zul'Gurub",
         title = "Zul'Gurub",
         itemDesc = "Coins & Bijous",
-        aliases = { "zul'gurub", "zulgurub", "zg" },
+        aliases = {},
     },
     {
         key = "Ruins of Ahn'Qiraj",
         title = "Ruins of Ahn'Qiraj",
         itemDesc = "Scarabs & Idols",
-        aliases = { "ruins of ahn'qiraj", "ahn'qiraj ruins", "aq20", "ruins of ahnqiraj" },
+        aliases = {},
     },
     {
         key = "Naxxramas",
         title = "Naxxramas",
         itemDesc = "Wartorn Scraps",
-        aliases = { "naxxramas", "naxx" },
+        aliases = {},
     },
 }
 
@@ -317,15 +317,11 @@ local function MatchDungeonKey(zoneText)
     if not zoneText or zoneText == "" then return nil, nil end
     local norm = string.lower(zoneText)
 
+    -- Exact names only: "Ahn'Qiraj" (AQ40) is part of "Ruins of Ahn'Qiraj".
     for _, def in ipairs(DungeonDefinitions) do
-        local normKey = string.lower(def.key)
-        if norm == normKey or string.find(norm, normKey, 1, true) or string.find(normKey, norm, 1, true) then
-            return def.key, def
-        end
+        if norm == string.lower(def.key) then return def.key, def end
         for _, alias in ipairs(def.aliases) do
-            if norm == alias or string.find(norm, alias, 1, true) or string.find(alias, norm, 1, true) then
-                return def.key, def
-            end
+            if norm == alias then return def.key, def end
         end
     end
     return nil, nil
@@ -333,20 +329,11 @@ end
 
 function AutoLazy_ResolveCurrentDungeon()
     if not AutoLazyDB then return nil, nil end
-    local rz = (GetRealZoneText and GetRealZoneText()) or ""
-    local z  = (GetZoneText and GetZoneText()) or ""
-    local sz = (GetSubZoneText and GetSubZoneText()) or ""
-    local mz = (GetMinimapZoneText and GetMinimapZoneText()) or ""
-
-    local key, def = MatchDungeonKey(rz)
+    -- The instance (Map.dbc) name, then the zone. Subzone and minimap text name
+    -- places outside instances too, such as "The Dark Portal" in Blasted Lands.
+    local key, def = MatchDungeonKey((GetInstanceInfo()))
     if key then return key, def end
-    key, def = MatchDungeonKey(z)
-    if key then return key, def end
-    key, def = MatchDungeonKey(sz)
-    if key then return key, def end
-    key, def = MatchDungeonKey(mz)
-    if key then return key, def end
-    return nil, nil
+    return MatchDungeonKey(GetRealZoneText())
 end
 
 local function UpdateZoneCache()
