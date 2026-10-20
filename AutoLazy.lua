@@ -34,25 +34,21 @@ local DungeonDefinitions = {
     {
         key = "The Black Morass",
         title = "The Black Morass",
-        itemDesc = "Corrupted Sand",
         aliases = { "opening of the dark portal" },
     },
     {
         key = "Zul'Gurub",
         title = "Zul'Gurub",
-        itemDesc = "Coins & Bijous",
         aliases = {},
     },
     {
         key = "Ruins of Ahn'Qiraj",
         title = "Ruins of Ahn'Qiraj",
-        itemDesc = "Scarabs & Idols",
         aliases = {},
     },
     {
         key = "Naxxramas",
         title = "Naxxramas",
-        itemDesc = "Wartorn Scraps",
         aliases = {},
     },
 }
@@ -81,132 +77,7 @@ local DungeonItems = {
 
 AutoLazy.DungeonDefinitions = DungeonDefinitions
 AutoLazy.DungeonItems = DungeonItems
-AutoLazy_DungeonDefinitions = DungeonDefinitions
 AutoLazy_DungeonItems = DungeonItems
-
--- Hash Table of recognized Farm Items (Normalized lowercase -> Category Tag)
-local FarmItemLookup = {
-    -- The Black Morass
-    ["corrupted sand"]            = "Corrupted Sand",
-
-    -- Zul'Gurub (9 Tribal Coins)
-    ["zulian coin"]               = "ZG Coin",
-    ["razzashi coin"]             = "ZG Coin",
-    ["hakkari coin"]              = "ZG Coin",
-    ["sandfury coin"]             = "ZG Coin",
-    ["skullsplitter coin"]        = "ZG Coin",
-    ["bloodscalp coin"]           = "ZG Coin",
-    ["gurubashi coin"]            = "ZG Coin",
-    ["vilebranch coin"]           = "ZG Coin",
-    ["witherbark coin"]           = "ZG Coin",
-
-    -- Zul'Gurub (9 Hakkari Bijous)
-    ["red hakkari bijou"]         = "ZG Bijou",
-    ["blue hakkari bijou"]        = "ZG Bijou",
-    ["yellow hakkari bijou"]      = "ZG Bijou",
-    ["orange hakkari bijou"]      = "ZG Bijou",
-    ["green hakkari bijou"]       = "ZG Bijou",
-    ["purple hakkari bijou"]      = "ZG Bijou",
-    ["bronze hakkari bijou"]      = "ZG Bijou",
-    ["silver hakkari bijou"]      = "ZG Bijou",
-    ["gold hakkari bijou"]        = "ZG Bijou",
-
-    -- AQ20 (8 Scarab Tokens)
-    ["stone scarab"]              = "AQ20 Scarab",
-    ["gold scarab"]               = "AQ20 Scarab",
-    ["silver scarab"]             = "AQ20 Scarab",
-    ["bronze scarab"]             = "AQ20 Scarab",
-    ["crystal scarab"]            = "AQ20 Scarab",
-    ["clay scarab"]               = "AQ20 Scarab",
-    ["bone scarab"]               = "AQ20 Scarab",
-    ["ivory scarab"]              = "AQ20 Scarab",
-
-    -- AQ20 (8 Token Idols - Excludes Druid Relic Idols)
-    ["amber idol"]                = "AQ20 Idol",
-    ["azure idol"]                = "AQ20 Idol",
-    ["jasper idol"]               = "AQ20 Idol",
-    ["obsidian idol"]             = "AQ20 Idol",
-    ["onyx idol"]                 = "AQ20 Idol",
-    ["vermillion idol"]           = "AQ20 Idol",
-    ["alabaster idol"]            = "AQ20 Idol",
-    ["lambent idol"]              = "AQ20 Idol",
-
-    -- Naxxramas (Tier 3 Wartorn Scraps)
-    ["wartorn cloth scrap"]       = "Wartorn Scrap",
-    ["wartorn leather scrap"]     = "Wartorn Scrap",
-    ["wartorn chain scrap"]       = "Wartorn Scrap",
-    ["wartorn plate scrap"]       = "Wartorn Scrap",
-
-    -- Argent Dawn (Repeatable Hand-in Materials)
-    ["bone fragments"]            = "Argent Dawn",
-    ["crypt fiend parts"]         = "Argent Dawn",
-    ["core of elements"]          = "Argent Dawn",
-    ["savage frond"]              = "Argent Dawn",
-    ["dark iron scraps"]          = "Argent Dawn",
-    ["healthy dragon scale"]      = "Argent Dawn",
-    ["fiery core"]                = "Molten Core",
-    ["lava core"]                 = "Molten Core",
-    ["core leather"]              = "Molten Core",
-
-    -- Cenarion Circle (Silithus)
-    ["encrypted twilight text"]   = "Twilight Text",
-    ["twilight cultist cowl"]     = "Twilight Cultist",
-    ["twilight cultist mantle"]   = "Twilight Cultist",
-    ["twilight cultist robe"]     = "Twilight Cultist",
-    ["abyssal crest"]             = "Cenarion Token",
-    ["abyssal signet"]            = "Cenarion Token",
-    ["abyssal scepter"]           = "Cenarion Token",
-
-    -- Timbermaw Hold
-    ["deadwood headdress feather"]= "Timbermaw",
-    ["winterfall spirit beads"]   = "Timbermaw",
-
-    -- Winterspring E'ko
-    ["winterfall e'ko"]           = "Winterspring E'ko",
-    ["frostmaul e'ko"]            = "Winterspring E'ko",
-    ["shardtooth e'ko"]           = "Winterspring E'ko",
-    ["frostsaber e'ko"]           = "Winterspring E'ko",
-    ["wildkin e'ko"]              = "Winterspring E'ko",
-    ["chillwind e'ko"]            = "Winterspring E'ko",
-    ["ice thistle e'ko"]          = "Winterspring E'ko",
-
-    -- Un'Goro Crater
-    ["un'goro soil"]              = "Un'Goro Soil",
-    ["morrowgrain"]               = "Morrowgrain",
-    ["bloodpetal sprout"]         = "Bloodpetal",
-
-    -- Alterac Valley
-    ["armor scraps"]              = "AV Scraps",
-    ["stormpike soldier's blood"] = "AV Blood",
-    ["stormpike lieutenant's flesh"] = "AV Flesh",
-    ["darkspear soldier's blood"] = "AV Blood",
-    ["frostwolf soldier's blood"] = "AV Blood",
-    ["frostwolf lieutenant's flesh"] = "AV Flesh",
-    ["alterac ram hide"]          = "AV Hide",
-    ["frostwolf hide"]            = "AV Hide",
-    ["irondeep supplies"]         = "AV Supplies",
-    ["coldtooth supplies"]        = "AV Supplies",
-
-    -- Custom / World Turn-ins
-    ["tel'abim banana"]           = "Tel'Abim",
-}
-
-local FarmRuleKeys = {
-    ["ZG Coin"] = "zg coins", ["ZG Bijou"] = "zg bijous",
-    ["AQ20 Scarab"] = "aq20 scarabs", ["AQ20 Idol"] = "aq20 idols",
-}
-
--- Hash Table of Explicitly Blacklisted Items
-local BlacklistItems = {
-    ["fashion coin"]              = true,
-    ["idol of the moon"]          = true,
-    ["idol of rejuvenation"]      = true,
-    ["idol of brutality"]         = true,
-    ["idol of ferocity"]          = true,
-    ["idol of health"]            = true,
-}
-
-local ItemEvaluationCache = {}
 
 local defaultDB = {
     Enabled = true,
@@ -337,50 +208,7 @@ function AutoLazy_ResolveCurrentDungeon()
 end
 
 local function UpdateZoneCache()
-    local prevKey = CachedDungeonKey
     CachedDungeonKey, CachedDungeonDef = AutoLazy_ResolveCurrentDungeon()
-    if prevKey ~= CachedDungeonKey and table.wipe then
-        table.wipe(ItemEvaluationCache)
-    end
-end
-
-function AutoLazy_IsFarmItem(itemName)
-    if not itemName or itemName == "" then return false, nil end
-
-    local cached = ItemEvaluationCache[itemName]
-    if cached ~= nil then
-        if cached == false then return false, nil end
-        return true, cached
-    end
-
-    local lower = string.lower(itemName)
-    if BlacklistItems[lower] or string.find(lower, "fashion coin", 1, true) then
-        ItemEvaluationCache[itemName] = false
-        return false, nil
-    end
-
-    local farmTag = FarmItemLookup[lower]
-    if farmTag then
-        ItemEvaluationCache[itemName] = farmTag
-        return true, farmTag
-    end
-
-    ItemEvaluationCache[itemName] = false
-    return false, nil
-end
-
-local function GetItemRuleKey(itemName)
-    if not itemName or itemName == "" then return nil end
-    local lower = string_lower(itemName)
-    -- Only catalogued names qualify. Shared words cannot opt gear into a rule.
-    if RuleDungeons[lower] then return lower end
-    return FarmRuleKeys[FarmItemLookup[lower]]
-end
-
-function AutoLazy_GetItemRule(itemName)
-    if not AutoLazyDB or not AutoLazyDB.ItemRules then return nil end
-    local key = GetItemRuleKey(itemName)
-    return key and AutoLazyDB.ItemRules[key]
 end
 
 local questSessionActive = false
@@ -1085,11 +913,11 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
         HookChatFrameEvents()
         UpdateZoneCache()
         AutoLazy_UpdateActionButton()
-        pcall(AutoLazy_ApplySystemIconToggles)
+        AutoLazy_ApplySystemIconToggles()
 
     elseif ev == "PLAYER_ENTERING_WORLD" then
         UpdateZoneCache()
-        pcall(AutoLazy_ApplySystemIconToggles)
+        AutoLazy_ApplySystemIconToggles()
 
     elseif ev == "ZONE_CHANGED_NEW_AREA" or ev == "ZONE_CHANGED" then
         UpdateZoneCache()
@@ -1313,7 +1141,7 @@ SlashCmdList["AUTOLAZY"] = function(msg)
     elseif cmd == "" or cmd == "gui" or cmd == "menu" or cmd == "config" or cmd == "options" then
         if AutoLazy_ToggleGUI then AutoLazy_ToggleGUI() else AutoLazy_PrintStatus() end
     else
-        AutoLazy_Print("Commands: /al, /al tray, /al collapse, /al resetpos, /al btn, /al radio, /al lfg, /al toggle, /al clean, /al quest, /al turnin, /al status")
+        AutoLazy_Print("Commands: /al (options), status, on, off, toggle (auto-roll), bop, clean, quest, turnin, tray, collapse, btn, resetpos, radio, lfg")
     end
 end
 

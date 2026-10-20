@@ -8,7 +8,7 @@ AutoLazy.Tray = Tray
 local records, byFrame, created = {}, {}, {}
 local opened, scanning, refreshPending = false, false, false
 local fullScanPending, registryDirty = false, false
-local layoutPending, closing = false, false
+local layoutPending, closing, loginScanned = false, false, false
 local serial, openEpoch = 0, 0
 local backdrop, launcher
 local Refresh, Layout, Reconcile
@@ -501,10 +501,8 @@ Reconcile = function()
         record.mode = mode
         if mode == "idle" and previous ~= "idle" then Restore(record, true)
         elseif mode == "hidden" and previous == "docked" then Restore(record, false)
-        elseif mode == "hidden" then
-            Guard(record, function()
-                if record.frame:IsShown() then record.nodes[1].methods.Hide(record.frame) end
-            end)
+        elseif mode == "hidden" and record.frame:IsShown() then
+            Guard(record, function() record.nodes[1].methods.Hide(record.frame) end)
         end
     end
     if opened then Layout(ActiveRecords()) end
@@ -719,12 +717,17 @@ controller:SetScript("OnEvent", function(_, eventName)
         -- down event could hide an addon's child menu before its click-up.
         local epoch = openEpoch
         C_Timer.After(0, function() if opened and openEpoch == epoch then Tray.Close() end end)
-    else
-        QueueRefresh(ev ~= "ZONE_CHANGED_NEW_AREA")
-        if ev == "VARIABLES_LOADED" or ev == "PLAYER_ENTERING_WORLD" then
+    elseif ev == "ADDON_LOADED" or ev == "VARIABLES_LOADED" or not loginScanned then
+        QueueRefresh(true)
+        if ev == "PLAYER_ENTERING_WORLD" then
+            -- Late launchers appear shortly after login. Later loading screens
+            -- create no addons, so they skip the client-wide namespace walk.
+            loginScanned = true
             C_Timer.After(0.5, function() QueueRefresh(true) end)
             C_Timer.After(2, function() QueueRefresh(true) end)
         end
+    else
+        QueueRefresh()
     end
 end)
 
