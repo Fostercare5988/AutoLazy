@@ -1,5 +1,5 @@
 --[[
-    AutoLazy v1.1.0
+    AutoLazy v1.2.0
     Author & Maintainer: Fostercare5988
     Target: World of Warcraft 1.12.1 (Vanilla Enhanced Stack: ClassicAPI v1.16.0+)
     Description: Dungeon loot automation, Shift-click quest turn-ins, and a reversible minimap addon tray.

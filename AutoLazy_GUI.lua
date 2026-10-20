@@ -4,6 +4,45 @@ if type(CLASSIC_API_VERSION) ~= "number" or CLASSIC_API_VERSION < 11600 then ret
 
 local panel, Refresh
 
+-- VanillaForge dark plum and lavender settings theme (KNOWN_PATTERNS).
+local Theme = {
+    background = { 0.055, 0.045, 0.075 }, control = { 0.14, 0.10, 0.20 },
+    selected = { 0.25, 0.18, 0.35 }, border = { 0.55, 0.43, 0.72 },
+    buttonBorder = { 0.42, 0.33, 0.54 }, heading = { 0.78, 0.65, 1 },
+    text = { 0.92, 0.90, 1 }, hint = { 0.80, 0.76, 0.90 },
+}
+local themeBackdrop = {
+    bgFile = "Interface\\Buttons\\WHITE8X8",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 8, edgeSize = 12,
+    insets = { left = 3, right = 3, top = 3, bottom = 3 },
+}
+
+local function Color(font, role)
+    local c = Theme[role]
+    font:SetTextColor(c[1], c[2], c[3])
+end
+
+local function Surface(frame, background, border)
+    frame:SetBackdrop(themeBackdrop)
+    frame:SetBackdropColor(background[1], background[2], background[3], 1)
+    frame:SetBackdropBorderColor(border[1], border[2], border[3], 1)
+end
+
+-- Selected buttons (active tab, chosen dungeon) get the hover tone, a
+-- lavender edge and a lavender label.
+local function Select(button, selected)
+    if button.selected == selected then return end
+    button.selected = selected
+    Surface(button, Theme[selected and "selected" or "control"], Theme[selected and "heading" or "buttonBorder"])
+    Color(button:GetFontString(), selected and "heading" or "text")
+end
+
+local function Flat(button, setter, getter, color, alpha)
+    button[setter](button, "Interface\\Buttons\\WHITE8X8")
+    button[getter](button):SetVertexColor(color[1], color[2], color[3], alpha)
+end
+
 local function HideTooltip() GameTooltip:Hide() end
 
 local function Checked(widget)
@@ -25,6 +64,7 @@ local function Label(parent, text, x, y, font)
     label:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
     label:SetJustifyH("LEFT")
     label:SetText(text)
+    Color(label, font and "hint" or "heading")
     return label
 end
 
@@ -33,6 +73,12 @@ local function Button(name, parent, text, x, y, width, onClick)
     button:SetWidth(width); button:SetHeight(22)
     button:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
     button:SetText(text)
+    -- Keep the native button's text, state transitions and hit rectangle.
+    Flat(button, "SetNormalTexture", "GetNormalTexture", Theme.text, 0.08)
+    Flat(button, "SetPushedTexture", "GetPushedTexture", Theme.heading, 0.18)
+    Flat(button, "SetDisabledTexture", "GetDisabledTexture", Theme.border, 0.04)
+    Flat(button, "SetHighlightTexture", "GetHighlightTexture", Theme.text, 0.14)
+    Select(button, false)
     button:SetScript("OnClick", onClick)
     return button
 end
@@ -46,6 +92,7 @@ local function Checkbox(name, parent, text, tip, x, y, onClick, hitWidth)
     widget.label = getglobal(name .. "Text")
     widget.label:SetText(text)
     widget.label:SetFontObject("GameFontHighlightSmall")
+    Color(widget.label, "text")
     widget.label:ClearAllPoints()
     widget.label:SetPoint("LEFT", widget, "RIGHT", 4, 0)
     if tip then Tooltip(widget, tip) end
@@ -66,6 +113,7 @@ local function Sync(widget, value, enabled)
         widget.disabled = disabled
         if disabled then widget:Disable() else widget:Enable() end
         widget.label:SetFontObject(disabled and "GameFontDisableSmall" or "GameFontHighlightSmall")
+        if not disabled then Color(widget.label, "text") end
     end
 end
 
@@ -89,19 +137,14 @@ local function CreateOptions()
     panel:SetScript("OnDragStart", function() panel:StartMoving() end)
     panel:SetScript("OnDragStop", function() panel:StopMovingOrSizing(); PinTop() end)
     panel:SetClampedToScreen(true)
-    panel:SetBackdrop({
-        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = false, edgeSize = 16,
-        insets = { left = 4, right = 4, top = 4, bottom = 4 },
-    })
-    panel:SetBackdropColor(0.05, 0.05, 0.07, 0.96)
-    panel:SetBackdropBorderColor(0.45, 0.45, 0.50, 1)
+    Surface(panel, Theme.background, Theme.border)
+    panel:SetBackdropColor(Theme.background[1], Theme.background[2], Theme.background[3], 0.97)
     panel:Hide()
     table.insert(UISpecialFrames, "AutoLazy_OptionsFrame")
     local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOP", panel, "TOP", 0, -18)
     title:SetText("AutoLazy")
+    Color(title, "heading")
 
     local tabTweaks = CreateFrame("Frame", "AutoLazy_TabTweaksFrame", panel)
     local tabLoot = CreateFrame("Frame", "AutoLazy_TabLootFrame", panel)
@@ -117,9 +160,9 @@ local function CreateOptions()
         if index ~= 1 and index ~= 2 and index ~= 3 then index = 1 end
         AutoLazyDB.SelectedTab = index
         if index ~= activeTab then
-            if activeTab then tabs[activeTab]:Enable() end
+            if activeTab then Select(tabs[activeTab], false) end
             activeTab = index
-            tabs[index]:Disable()
+            Select(tabs[index], true)
         end
         page, height = page or pages[index], height or heights[index]
         if height ~= activeHeight then panel:SetHeight(height); activeHeight = height end
@@ -184,6 +227,7 @@ local function CreateOptions()
         Label(picker, "Checked icons stay on the minimap.", 28, -120, "GameFontHighlightSmall")
         local empty = Label(picker, "", 28, -148, "GameFontDisableSmall")
         local pageText = picker:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+        Color(pageText, "hint")
         pageText:SetPoint("BOTTOM", picker, "BOTTOM", 0, 50)
         local rows, perPage = {}, 8
         for i = 1, perPage do
@@ -339,7 +383,7 @@ local function CreateOptions()
             renderedDungeon = selectedDungeonKey
             selectedTitle:SetText(selectedDungeonKey)
             for key, button in pairs(dungeonButtons) do
-                if key == selectedDungeonKey then button:LockHighlight() else button:UnlockHighlight() end
+                Select(button, key == selectedDungeonKey)
             end
             local items = AutoLazy_DungeonItems[selectedDungeonKey]
             for i = 1, 4 do
@@ -394,11 +438,9 @@ local function CreateOptions()
         Sync(cbQuestSafe, quests.SafeRewards, quests.Enabled and quests.AutoTurnIn)
     end
 
-    local close = CreateFrame("Button", "AutoLazy_BtnClose", panel, "UIPanelButtonTemplate")
-    close:SetWidth(96); close:SetHeight(22)
+    local close = Button("AutoLazy_BtnClose", panel, "Close", 0, 0, 96, function() panel:Hide() end)
+    close:ClearAllPoints()
     close:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -28, 14)
-    close:SetText("Close")
-    close:SetScript("OnClick", function() panel:Hide() end)
     local refreshTab = { RefreshMinimap, RefreshLoot, RefreshQuests }
     Refresh = function()
         local index = AutoLazyDB.SelectedTab
