@@ -3,44 +3,38 @@
 if type(CLASSIC_API_VERSION) ~= "number" or CLASSIC_API_VERSION < 11600 then return end
 
 local panel, Refresh
-
--- VanillaForge dark plum and lavender settings theme (KNOWN_PATTERNS).
-local Theme = {
-    background = { 0.055, 0.045, 0.075 }, control = { 0.14, 0.10, 0.20 },
-    selected = { 0.25, 0.18, 0.35 }, border = { 0.55, 0.43, 0.72 },
-    buttonBorder = { 0.42, 0.33, 0.54 }, heading = { 0.78, 0.65, 1 },
-    text = { 0.92, 0.90, 1 }, hint = { 0.80, 0.76, 0.90 },
-}
-local themeBackdrop = {
-    bgFile = "Interface\\Buttons\\WHITE8X8",
-    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    tile = true, tileSize = 8, edgeSize = 12,
-    insets = { left = 3, right = 3, top = 3, bottom = 3 },
-}
+local Style = AutoLazy.Style
+local WHITE = { 1, 1, 1, 1 }
 
 local function Color(font, role)
-    local c = Theme[role]
+    local c = Style[role]
     font:SetTextColor(c[1], c[2], c[3])
 end
 
-local function Surface(frame, background, border)
-    frame:SetBackdrop(themeBackdrop)
-    frame:SetBackdropColor(background[1], background[2], background[3], 1)
-    frame:SetBackdropBorderColor(border[1], border[2], border[3], 1)
+local function Tint(texture, c)
+    texture:SetVertexColor(c[1], c[2], c[3], c[4] or 1)
 end
 
--- Selected buttons (active tab, chosen dungeon) get the hover tone, a
--- lavender edge and a lavender label.
+local function Disc(parent, layer, size, color)
+    local texture = parent:CreateTexture(nil, layer)
+    texture:SetTexture(Style.disc)
+    texture:SetWidth(size); texture:SetHeight(size)
+    Tint(texture, color)
+    return texture
+end
+
+-- Selected buttons (active tab, chosen dungeon) become a filled orange pill.
+-- Ghost buttons sit on a track and show no fill until selected.
 local function Select(button, selected)
     if button.selected == selected then return end
     button.selected = selected
-    Surface(button, Theme[selected and "selected" or "control"], Theme[selected and "heading" or "buttonBorder"])
-    Color(button:GetFontString(), selected and "heading" or "text")
+    Style.Paint(button.fill, selected and Style.selected or (button.ghost and Style.clear or Style.control))
+    Color(button:GetFontString(), (selected or not button.ghost) and "text" or "hint")
 end
 
-local function Flat(button, setter, getter, color, alpha)
-    button[setter](button, "Interface\\Buttons\\WHITE8X8")
-    button[getter](button):SetVertexColor(color[1], color[2], color[3], alpha)
+local function SetEnabled(button, enabled)
+    if enabled then button:Enable() else button:Disable() end
+    button:SetAlpha(enabled and 1 or 0.4)
 end
 
 local function HideTooltip() GameTooltip:Hide() end
@@ -60,7 +54,7 @@ local function Tooltip(widget, text)
 end
 
 local function Label(parent, text, x, y, font)
-    local label = parent:CreateFontString(nil, "ARTWORK", font or "GameFontNormal")
+    local label = parent:CreateFontString(nil, "OVERLAY", font or "GameFontNormal")
     label:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
     label:SetJustifyH("LEFT")
     label:SetText(text)
@@ -68,53 +62,105 @@ local function Label(parent, text, x, y, font)
     return label
 end
 
-local function Button(name, parent, text, x, y, width, onClick)
-    local button = CreateFrame("Button", name, parent, "UIPanelButtonTemplate")
-    button:SetWidth(width); button:SetHeight(22)
+-- Section headings: small orange capitals.
+local function Heading(parent, text, x, y)
+    local label = Label(parent, string.upper(text), x, y, "GameFontNormalSmall")
+    Color(label, "heading")
+    return label
+end
+
+-- A rounded pill. options: ghost, height, font.
+local function Button(name, parent, text, x, y, width, onClick, options)
+    options = options or {}
+    local height = options.height or 22
+    local button = CreateFrame("Button", name, parent)
+    button:SetWidth(width); button:SetHeight(height)
     button:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+    button:RegisterForClicks("LeftButtonUp")
+    button.fill = Style.Rounded(button, "BACKGROUND", height / 2, Style.clear)
+    Style.Rounded(button, "HIGHLIGHT", height / 2, Style.hover)
+    local label = button:CreateFontString(nil, "OVERLAY", options.font or "GameFontHighlightSmall")
+    label:SetAllPoints(button)
+    button:SetFontString(label)
     button:SetText(text)
-    -- Keep the native button's text, state transitions and hit rectangle.
-    Flat(button, "SetNormalTexture", "GetNormalTexture", Theme.text, 0.08)
-    Flat(button, "SetPushedTexture", "GetPushedTexture", Theme.heading, 0.18)
-    Flat(button, "SetDisabledTexture", "GetDisabledTexture", Theme.border, 0.04)
-    Flat(button, "SetHighlightTexture", "GetHighlightTexture", Theme.text, 0.14)
+    button.ghost = options.ghost
     Select(button, false)
     button:SetScript("OnClick", onClick)
     return button
 end
 
+-- Switches and radio dots draw their own state, so a disabled or
+-- unchecked control never shows the native check art.
+local function Paint(widget)
+    local on, dim = Checked(widget), widget.disabled and true or false
+    if widget.shownOn == on and widget.shownDim == dim then return end
+    widget.shownOn, widget.shownDim = on, dim
+    if widget.dot then
+        Tint(widget.ring, on and Style.accent or Style.hint)
+        if on then widget.dot:Show() else widget.dot:Hide() end
+    else
+        Style.Paint(widget.track, on and Style.selected or Style.control)
+        widget.knob:ClearAllPoints()
+        widget.knob:SetPoint("LEFT", widget, "LEFT", on and 14 or 2, 0)
+        Tint(widget.knob, on and WHITE or Style.knob)
+    end
+    widget:SetAlpha(dim and 0.4 or 1)
+end
+
+local function SetCheck(widget, value)
+    if Checked(widget) ~= value then widget:SetChecked(value) end
+    Paint(widget)
+end
+
 local function Checkbox(name, parent, text, tip, x, y, onClick, hitWidth)
-    local widget = CreateFrame("CheckButton", name, parent, "UICheckButtonTemplate")
-    widget:SetWidth(20); widget:SetHeight(20)
-    widget:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+    local widget = CreateFrame("CheckButton", name, parent)
+    widget:SetWidth(28); widget:SetHeight(16)
+    widget:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y - 2)
     -- Make the label clickable without overlapping the neighboring column.
     widget:SetHitRectInsets(0, -(hitWidth or 190), 0, 0)
-    widget.label = getglobal(name .. "Text")
+    widget.track = Style.Rounded(widget, "BACKGROUND", 8, Style.control)
+    widget.knob = Disc(widget, "ARTWORK", 12, Style.knob)
+    local halo = Disc(widget, "HIGHLIGHT", 22, { 1, 1, 1, 0.10 })
+    halo:SetPoint("CENTER", widget.knob, "CENTER", 0, 0)
+    -- Keep the template's label name for anything that refers to it.
+    widget.label = widget:CreateFontString(name .. "Text", "OVERLAY", "GameFontHighlightSmall")
+    widget.label:SetPoint("LEFT", widget, "RIGHT", 8, 0)
+    widget.label:SetJustifyH("LEFT")
     widget.label:SetText(text)
-    widget.label:SetFontObject("GameFontHighlightSmall")
     Color(widget.label, "text")
-    widget.label:ClearAllPoints()
-    widget.label:SetPoint("LEFT", widget, "RIGHT", 4, 0)
     if tip then Tooltip(widget, tip) end
     if onClick then
         widget:SetScript("OnClick", function(self)
-            onClick(Checked(self or this or widget))
+            local clicked = self or this or widget
+            Paint(clicked)
+            onClick(Checked(clicked))
             AutoLazy_UpdateGUI()
         end)
     end
+    Paint(widget)
+    return widget
+end
+
+local function Radio(name, parent)
+    local widget = CreateFrame("CheckButton", name, parent)
+    widget:SetWidth(16); widget:SetHeight(16)
+    widget.ring = Disc(widget, "BACKGROUND", 14, Style.hint)
+    widget.ring:SetPoint("CENTER", widget, "CENTER", 0, 0)
+    Disc(widget, "BORDER", 10, Style.surface):SetPoint("CENTER", widget, "CENTER", 0, 0)
+    widget.dot = Disc(widget, "ARTWORK", 6, Style.accent)
+    widget.dot:SetPoint("CENTER", widget, "CENTER", 0, 0)
+    Disc(widget, "HIGHLIGHT", 22, { 1, 1, 1, 0.10 }):SetPoint("CENTER", widget, "CENTER", 0, 0)
+    Paint(widget)
     return widget
 end
 
 local function Sync(widget, value, enabled)
-    value = value and true or false
-    if Checked(widget) ~= value then widget:SetChecked(value) end
     local disabled = enabled == false
     if widget.disabled ~= disabled then
         widget.disabled = disabled
         if disabled then widget:Disable() else widget:Enable() end
-        widget.label:SetFontObject(disabled and "GameFontDisableSmall" or "GameFontHighlightSmall")
-        if not disabled then Color(widget.label, "text") end
     end
+    SetCheck(widget, value and true or false)
 end
 
 local function PinTop()
@@ -137,23 +183,44 @@ local function CreateOptions()
     panel:SetScript("OnDragStart", function() panel:StartMoving() end)
     panel:SetScript("OnDragStop", function() panel:StopMovingOrSizing(); PinTop() end)
     panel:SetClampedToScreen(true)
-    Surface(panel, Theme.background, Theme.border)
-    panel:SetBackdropColor(Theme.background[1], Theme.background[2], Theme.background[3], 0.97)
+    Style.Surface(panel, 14)
     panel:Hide()
     table.insert(UISpecialFrames, "AutoLazy_OptionsFrame")
-    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-    title:SetPoint("TOP", panel, "TOP", 0, -18)
+
+    local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", panel, "TOPLEFT", 26, -18)
     title:SetText("AutoLazy")
     Color(title, "heading")
+    local version = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    version:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 6, 1)
+    version:SetText("v" .. (GetAddOnMetadata("AutoLazy", "Version") or ""))
+    Color(version, "hint")
+    local close = CreateFrame("Button", "AutoLazy_BtnClose", panel)
+    close:SetWidth(22); close:SetHeight(22)
+    close:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -14, -14)
+    close:RegisterForClicks("LeftButtonUp")
+    Disc(close, "HIGHLIGHT", 22, { 1, 1, 1, 0.10 }):SetAllPoints(close)
+    local glyph = close:CreateTexture(nil, "ARTWORK")
+    glyph:SetTexture(Style.close)
+    glyph:SetWidth(12); glyph:SetHeight(12)
+    glyph:SetPoint("CENTER", close, "CENTER", 0, 0)
+    Tint(glyph, Style.hint)
+    close:SetScript("OnClick", function() panel:Hide() end)
 
     local tabTweaks = CreateFrame("Frame", "AutoLazy_TabTweaksFrame", panel)
     local tabLoot = CreateFrame("Frame", "AutoLazy_TabLootFrame", panel)
     local tabQuests = CreateFrame("Frame", "AutoLazy_TabQuestsFrame", panel)
     local pages, heights = { tabTweaks, tabLoot, tabQuests }, { 310, 380, 300 }
     for i = 1, 3 do pages[i]:SetAllPoints(panel); pages[i]:Hide() end
-    local btnTab1 = Button("AutoLazy_BtnTab1", panel, "Minimap", 28, -52, 140)
-    local btnTab2 = Button("AutoLazy_BtnTab2", panel, "Loot", 180, -52, 140)
-    local btnTab3 = Button("AutoLazy_BtnTab3", panel, "Quests", 332, -52, 140)
+    -- Segmented control: one pill track, the active tab a filled pill inside it.
+    local tabTrack = CreateFrame("Frame", nil, panel)
+    tabTrack:SetWidth(452); tabTrack:SetHeight(30)
+    tabTrack:SetPoint("TOPLEFT", panel, "TOPLEFT", 24, -48)
+    Style.Rounded(tabTrack, "BACKGROUND", 15, Style.track)
+    local tabStyle = { ghost = true, height = 24, font = "GameFontHighlight" }
+    local btnTab1 = Button("AutoLazy_BtnTab1", tabTrack, "Minimap", 3, -3, 148, nil, tabStyle)
+    local btnTab2 = Button("AutoLazy_BtnTab2", tabTrack, "Loot", 152, -3, 148, nil, tabStyle)
+    local btnTab3 = Button("AutoLazy_BtnTab3", tabTrack, "Quests", 301, -3, 148, nil, tabStyle)
     local tabs, activeTab, activePage, activeHeight = { btnTab1, btnTab2, btnTab3 }
     local keepMode, keepPage, picker, RefreshPicker = false, 1, nil, nil
     local function ShowTab(index, page, height)
@@ -182,18 +249,18 @@ local function CreateOptions()
     end
 
     -- Minimap: related controls share a row; detailed behavior is on hover.
-    Label(tabTweaks, "Addon tray", 28, -98)
+    Heading(tabTweaks, "Addon tray", 28, -98)
     local cbCollapse = Checkbox("AutoLazy_ToggleCollapse", tabTweaks, "Collapse minimap addons",
         "Keep addon minimap buttons in the tray. Turn off to restore their positions.", 28, -122, function(value)
             AutoLazy_CollapseAddons(value)
         end)
-    Button("AutoLazy_BtnOpenTray", tabTweaks, "Toggle tray", 300, -122, 172, AutoLazy_ToggleTray)
+    Button("AutoLazy_BtnOpenTray", tabTweaks, "Toggle tray", 300, -120, 172, AutoLazy_ToggleTray)
     local cbShowBtn = Checkbox("AutoLazy_ToggleShowBtn", tabTweaks, "Show floating button",
         "Left-click for the tray, right-click for options, or drag to move.", 28, -158, function(value)
             AutoLazyDB.ShowButton = value
             AutoLazy_UpdateActionButton()
         end)
-    Button("AutoLazy_BtnResetBtnPos", tabTweaks, "Reset position", 300, -158, 172, AutoLazy_ResetActionButtonPos)
+    Button("AutoLazy_BtnResetBtnPos", tabTweaks, "Reset position", 300, -156, 172, AutoLazy_ResetActionButtonPos)
     local cbHideRadio = Checkbox("AutoLazy_ToggleHideRadio", tabTweaks, "Hide Pirate Radio",
         "Hide the Pirate Radio icon, including its tray entry.", 28, -202, function(value)
             AutoLazyDB.Tweaks.HideRadio = value
@@ -217,23 +284,23 @@ local function CreateOptions()
         AutoLazy_UpdateGUI()
     end)
     keepButton:ClearAllPoints()
-    keepButton:SetPoint("BOTTOMLEFT", tabTweaks, "BOTTOMLEFT", 28, 14)
+    keepButton:SetPoint("BOTTOMLEFT", tabTweaks, "BOTTOMLEFT", 28, 18)
     Tooltip(keepButton, "Choose which addon icons stay on your minimap.")
 
     local function CreatePicker()
         picker = CreateFrame("Frame", "AutoLazy_KeepIconsFrame", panel)
         picker:SetAllPoints(panel); picker:Hide()
-        Label(picker, "Choose minimap icons", 28, -98)
-        Label(picker, "Checked icons stay on the minimap.", 28, -120, "GameFontHighlightSmall")
+        Heading(picker, "Choose minimap icons", 28, -98)
+        Label(picker, "Checked icons stay on the minimap.", 28, -116, "GameFontHighlightSmall")
         local empty = Label(picker, "", 28, -148, "GameFontDisableSmall")
-        local pageText = picker:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+        local pageText = picker:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
         Color(pageText, "hint")
         pageText:SetPoint("BOTTOM", picker, "BOTTOM", 0, 50)
         local rows, perPage = {}, 8
         for i = 1, perPage do
-            local row = Checkbox("AutoLazy_KeepIcon_" .. i, picker, "", nil, 28, -148 - (i - 1) * 26, nil, 420)
+            local row = Checkbox("AutoLazy_KeepIcon_" .. i, picker, "", nil, 28, -148 - (i - 1) * 26, nil, 412)
             -- Bound long frame names to this row's clickable area.
-            row.label:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 420, 0)
+            row.label:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 412, 0)
             -- Discovery can update the list between mouse down and click.
             -- Retain that click's identity and intent rather than using a new row.
             row:SetScript("OnMouseDown", function(self)
@@ -247,6 +314,7 @@ local function CreateOptions()
                 if widget.pressed then keep = not widget.pressed.kept end
                 widget.pressed = nil
                 if entry then AutoLazy.Tray.SetKept(entry.frame, keep) end
+                Paint(widget)
             end)
             row:SetScript("OnHide", function() row.pressed = nil end)
             row:SetScript("OnEnter", function(self)
@@ -266,17 +334,17 @@ local function CreateOptions()
             keepMode = false
             AutoLazy_UpdateGUI()
         end)
-        back:ClearAllPoints(); back:SetPoint("BOTTOMLEFT", picker, "BOTTOMLEFT", 28, 14)
+        back:ClearAllPoints(); back:SetPoint("BOTTOMLEFT", picker, "BOTTOMLEFT", 28, 18)
         local previous = Button("AutoLazy_KeepIconsPrevious", picker, "Previous", 0, 0, 84, function()
             keepPage = keepPage - 1
             AutoLazy_UpdateGUI()
         end)
-        previous:ClearAllPoints(); previous:SetPoint("BOTTOMLEFT", picker, "BOTTOMLEFT", 156, 14)
+        previous:ClearAllPoints(); previous:SetPoint("BOTTOMLEFT", picker, "BOTTOMLEFT", 156, 18)
         local nextPage = Button("AutoLazy_KeepIconsNext", picker, "Next", 0, 0, 84, function()
             keepPage = keepPage + 1
             AutoLazy_UpdateGUI()
         end)
-        nextPage:ClearAllPoints(); nextPage:SetPoint("BOTTOMLEFT", picker, "BOTTOMLEFT", 252, 14)
+        nextPage:ClearAllPoints(); nextPage:SetPoint("BOTTOMLEFT", picker, "BOTTOMLEFT", 252, 18)
         RefreshPicker = function()
             local entries = AutoLazy.Tray.GetEntries()
             local count = table.getn(entries)
@@ -297,8 +365,8 @@ local function CreateOptions()
             if pageCount > 1 then
                 pageText:SetText("Page " .. keepPage .. " of " .. pageCount)
                 previous:Show(); nextPage:Show()
-                if keepPage > 1 then previous:Enable() else previous:Disable() end
-                if keepPage < pageCount then nextPage:Enable() else nextPage:Disable() end
+                SetEnabled(previous, keepPage > 1)
+                SetEnabled(nextPage, keepPage < pageCount)
             else
                 pageText:SetText("")
                 previous:Hide(); nextPage:Hide()
@@ -320,50 +388,54 @@ local function CreateOptions()
         "Hide Need, Greed, Pass and dice-roll messages. Keep the winner, item loot and money messages. Works even when auto-roll is off.", 28, -130, function(value)
             AutoLazyDB.CleanRollChat = value
         end)
-    Label(tabLoot, "Dungeon", 28, -174)
+    Heading(tabLoot, "Dungeon", 28, -174)
     local dungeonOrder = { "The Black Morass", "Zul'Gurub", "Ruins of Ahn'Qiraj", "Naxxramas" }
     local selectedDungeonKey, renderedDungeon = dungeonOrder[1], nil
     local dungeonButtons, itemRows, RefreshLoot = {}, {}, nil
+    local dungeonStyle = { ghost = true, height = 24 }
     for i = 1, table.getn(dungeonOrder) do
         local key = dungeonOrder[i]
-        dungeonButtons[key] = Button("AutoLazy_DungeonBtn_" .. i, tabLoot, key, 28, -198 - (i - 1) * 30, 132, function()
+        dungeonButtons[key] = Button("AutoLazy_DungeonBtn_" .. i, tabLoot, key, 24, -194 - (i - 1) * 30, 136, function()
             selectedDungeonKey = key
             RefreshLoot()
-        end)
+        end, dungeonStyle)
     end
-    local selectedTitle = Label(tabLoot, selectedDungeonKey, 176, -174)
+    local selectedTitle = Label(tabLoot, selectedDungeonKey, 176, -172)
     local actions, labels = { "MANUAL", "NEED", "GREED", "PASS" }, { "Manual", "Need", "Greed", "Pass" }
     local tips = { "Leave the roll open for you to choose.", "Roll Need on this item.", "Roll Greed on this item.", "Pass on this item." }
     local columns = { 164, 202, 240, 278 }
     for i = 1, 4 do
-        local heading = tabLoot:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        local heading = tabLoot:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         heading:SetPoint("TOP", tabLoot, "TOPLEFT", 176 + columns[i], -198)
         heading:SetText(labels[i])
+        Color(heading, "hint")
     end
     for i = 1, 4 do
         local row = CreateFrame("Frame", "AutoLazy_ItemRow_" .. i, tabLoot)
         row:SetWidth(296); row:SetHeight(26)
         row:SetPoint("TOPLEFT", tabLoot, "TOPLEFT", 176, -218 - (i - 1) * 28)
+        Style.Rounded(row, "BACKGROUND", 7, Style.row, 4)
         local icon = CreateFrame("Button", "AutoLazy_ItemIcon_" .. i, row)
         icon:SetWidth(20); icon:SetHeight(20)
         icon:SetPoint("LEFT", row, "LEFT", 0, 0)
         row.iconTex = icon:CreateTexture(nil, "ARTWORK")
         row.iconTex:SetAllPoints(icon)
+        -- Trim the stock icon border so the art sits flush in the row.
+        row.iconTex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
         icon:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self or this or icon, "ANCHOR_RIGHT")
             GameTooltip:SetHyperlink("item:" .. row.itemId .. ":0:0:0")
             GameTooltip:Show()
         end)
         icon:SetScript("OnLeave", HideTooltip)
-        row.nameText = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        row.nameText = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         row.nameText:SetPoint("LEFT", icon, "RIGHT", 6, 0)
         row.nameText:SetPoint("RIGHT", row, "LEFT", 142, 0)
         row.nameText:SetJustifyH("LEFT")
         row.actionButtons = {}
         for j = 1, 4 do
             local action = actions[j]
-            local choice = CreateFrame("CheckButton", "AutoLazy_ItemAction_" .. i .. "_" .. action, row, "UICheckButtonTemplate")
-            choice:SetWidth(20); choice:SetHeight(20)
+            local choice = Radio("AutoLazy_ItemAction_" .. i .. "_" .. action, row)
             choice:SetPoint("CENTER", row, "LEFT", columns[j], 0)
             Tooltip(choice, tips[j])
             choice:SetScript("OnClick", function()
@@ -406,16 +478,14 @@ local function CreateOptions()
                 -- A native checkbutton toggles itself before OnClick, even
                 -- when the player clicks the already selected action.
                 for j = 1, 4 do
-                    local choice = row.actionButtons[actions[j]]
-                    local checked = selected == actions[j]
-                    if Checked(choice) ~= checked then choice:SetChecked(checked) end
+                    SetCheck(row.actionButtons[actions[j]], selected == actions[j])
                 end
             end
         end
     end
 
     -- Quests: keep existing settings and dim dependent choices when disabled.
-    Label(tabQuests, "Quest turn-ins", 28, -98)
+    Heading(tabQuests, "Quest turn-ins", 28, -98)
     local cbQuestMaster = Checkbox("AutoLazy_QuestMaster", tabQuests, "Enable Shift-click",
         "Hold Shift when talking to an NPC for turn-ins and supported gossip shortcuts. Shift-right-click a quest name to turn in that selected quest once.", 28, -128, function(value)
             AutoLazyDB.Quests.Enabled = value
@@ -438,9 +508,6 @@ local function CreateOptions()
         Sync(cbQuestSafe, quests.SafeRewards, quests.Enabled and quests.AutoTurnIn)
     end
 
-    local close = Button("AutoLazy_BtnClose", panel, "Close", 0, 0, 96, function() panel:Hide() end)
-    close:ClearAllPoints()
-    close:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -28, 14)
     local refreshTab = { RefreshMinimap, RefreshLoot, RefreshQuests }
     Refresh = function()
         local index = AutoLazyDB.SelectedTab

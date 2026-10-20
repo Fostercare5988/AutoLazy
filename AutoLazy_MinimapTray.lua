@@ -632,14 +632,8 @@ backdrop:SetFrameStrata("DIALOG")
 backdrop:SetFrameLevel(10)
 backdrop:EnableMouse(false)
 backdrop:SetClampedToScreen(true)
--- Same dark plum and lavender surface as the options panel.
-backdrop:SetBackdrop({
-    bgFile = "Interface\\Buttons\\WHITE8X8",
-    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", tile = true,
-    tileSize = 8, edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 },
-})
-backdrop:SetBackdropColor(0.055, 0.045, 0.075, 0.95)
-backdrop:SetBackdropBorderColor(0.55, 0.43, 0.72, 1)
+-- Same rounded grey and orange surface as the options panel.
+AutoLazy.Style.Surface(backdrop, 12)
 backdrop:Hide()
 backdrop:SetScript("OnHide", Tray.Close)
 table.insert(UISpecialFrames, "AutoLazy_ButtonTray")

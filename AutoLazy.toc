@@ -11,5 +11,6 @@
 ## X-Website: https://github.com/Fostercare5988
 
 AutoLazy.lua
+AutoLazy_Style.lua
 AutoLazy_MinimapTray.lua
 AutoLazy_GUI.lua
