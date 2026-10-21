@@ -365,6 +365,35 @@ local function TryEnroll(frame)
     Enroll(frame, radioNames[name] and "radio" or lfgNames[name] and "lfg" or "addon")
 end
 
+-- A full scan tests a few thousand frames, each with string matching and
+-- native size/script/texture reads: about a quarter second in one go. The walk
+-- of the global namespace only collects them; the tests run a few
+-- milliseconds per frame until done, so discovery never freezes the client.
+local DRAIN_MS = 3
+local clock = debugprofilestop
+local pendingNames, pendingFrames, draining = {}, {}, false
+
+local function Drain()
+    local start, count = clock and clock(), 0
+    local n = table.getn(pendingFrames)
+    while n > 0 do
+        local name, frame = pendingNames[n], pendingFrames[n]
+        pendingNames[n], pendingFrames[n] = nil, nil
+        n = n - 1
+        -- Keep excluded names ahead of any proxy method lookup/native call.
+        if not BlockedName(name) then TryEnroll(frame) end
+        count = count + 1
+        if (clock and clock() - start >= DRAIN_MS) or (not clock and count >= 100) then break end
+    end
+    if n > 0 then
+        C_Timer.After(0, Drain)
+        return
+    end
+    draining = false
+    -- Sorts, lays out and updates settings with whatever was found.
+    if registryDirty then Refresh(false) end
+end
+
 local function Scan(full)
     if scanning then return end
     scanning = true
@@ -386,18 +415,22 @@ local function Scan(full)
     if full then
         -- Lifecycle discovery only. Opening the tray and observing a newly
         -- created button must never rescan the client-wide global namespace.
-        local candidates, seen = {}, {}
+        -- A newer walk replaces the rest of an unfinished one.
+        local seen, n = {}, 0
+        pendingNames, pendingFrames = {}, {}
         for name, frame in pairs(_G) do
-            -- Reject nonframes with Lua-only checks before string work. Keep
-            -- excluded names ahead of any proxy method lookup/native call.
+            -- Lua-only checks here; names and native calls wait for Drain.
             if type(name) == "string" and type(frame) == "table" and
-                type(rawget(frame, 0)) == "userdata" and not BlockedName(name) and
-                FrameReference(frame) and not byFrame[frame] and not seen[frame] then
+                type(rawget(frame, 0)) == "userdata" and not byFrame[frame] and not seen[frame] then
                 seen[frame] = true
-                table.insert(candidates, frame)
+                n = n + 1
+                pendingNames[n], pendingFrames[n] = name, frame
             end
         end
-        for i = 1, table.getn(candidates) do TryEnroll(candidates[i]) end
+        if n > 0 and not draining then
+            draining = true
+            C_Timer.After(0, Drain)
+        end
     end
     for frame in pairs(created) do TryEnroll(frame) end
     table.wipe(created)
