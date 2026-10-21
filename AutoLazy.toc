@@ -2,7 +2,7 @@
 ## Interface: 11200
 ## X-ClassicAPI-Min-Version: 1.16.0
 ## Dependencies: !!!ClassicAPI
-## Title: AutoLazy
+## Title: |cffff9e38AutoLazy|r |cffffd6a8[Fostercare5988]|r
 ## Notes: Loot automation, Shift-click quest turn-ins, and a reversible minimap addon tray (ClassicAPI v1.16.0+).
 ## Author: Fostercare5988
 ## Version: 1.2.0
