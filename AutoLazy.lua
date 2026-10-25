@@ -1,16 +1,16 @@
 --[[
     AutoLazy v1.2.0
     Author & Maintainer: Fostercare5988
-    Target: World of Warcraft 1.12.1 (Vanilla Enhanced Stack: ClassicAPI v1.16.0+)
+    Target: World of Warcraft 1.12.1 (Vanilla Enhanced Stack: ClassicAPI v1.17.7+)
     Description: Dungeon loot automation, Shift-click quest turn-ins, and a reversible minimap addon tray.
 ]]
 
--- Strict Engine Dependency Guard (Mandatory ClassicAPI v1.16.0+)
-local MIN_CLASSIC_API = 11600
+-- Strict Engine Dependency Guard (Mandatory ClassicAPI v1.17.7+)
+local MIN_CLASSIC_API = 11707
 
 if type(CLASSIC_API_VERSION) ~= "number" or CLASSIC_API_VERSION < MIN_CLASSIC_API then
     if DEFAULT_CHAT_FRAME then
-        DEFAULT_CHAT_FRAME:AddMessage("|cffff2020[AutoLazy Fatal Error]|r AutoLazy requires ClassicAPI (v1.16.0+)! Please ensure ClassicAPI.dll is loaded.", 1, 0.2, 0.2)
+        DEFAULT_CHAT_FRAME:AddMessage("|cffff2020[AutoLazy Fatal Error]|r AutoLazy requires ClassicAPI (v1.17.7+)! Please ensure ClassicAPI.dll is loaded.", 1, 0.2, 0.2)
     end
     return
 end

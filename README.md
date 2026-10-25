@@ -2,7 +2,7 @@
 
 Less clicking. Less chat spam. A cleaner minimap.
 
-For **World of Warcraft 1.12.1** with [ClassicAPI 1.16.0+](https://github.com/brues-code/ClassicAPI).
+For **World of Warcraft 1.12.1** with [ClassicAPI 1.17.7+](https://github.com/brues-code/ClassicAPI).
 
 - **Hide loot roll spam.** Keep the winner, item loot and money messages.
 - **Auto-roll farm items.** Choose Need, Greed, Pass or Manual in Black Morass, ZG, AQ20 and Naxxramas. Gear rolls stay manual.
