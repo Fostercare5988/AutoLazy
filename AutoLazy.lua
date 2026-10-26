@@ -1,5 +1,5 @@
 --[[
-    AutoLazy v1.2.0
+    AutoLazy v1.3.0
     Author & Maintainer: Fostercare5988
     Target: World of Warcraft 1.12.1 (Vanilla Enhanced Stack: ClassicAPI v1.17.7+)
     Description: Dungeon loot automation, Shift-click quest turn-ins, and a reversible minimap addon tray.
@@ -75,9 +75,7 @@ local DungeonItems = {
     },
 }
 
-AutoLazy.DungeonDefinitions = DungeonDefinitions
 AutoLazy.DungeonItems = DungeonItems
-AutoLazy_DungeonItems = DungeonItems
 
 local defaultDB = {
     Enabled = true,
@@ -198,17 +196,13 @@ local function MatchDungeonKey(zoneText)
     return nil, nil
 end
 
-function AutoLazy_ResolveCurrentDungeon()
-    if not AutoLazyDB then return nil, nil end
+local function UpdateZoneCache()
     -- The instance (Map.dbc) name, then the zone. Subzone and minimap text name
     -- places outside instances too, such as "The Dark Portal" in Blasted Lands.
-    local key, def = MatchDungeonKey((GetInstanceInfo()))
-    if key then return key, def end
-    return MatchDungeonKey(GetRealZoneText())
-end
-
-local function UpdateZoneCache()
-    CachedDungeonKey, CachedDungeonDef = AutoLazy_ResolveCurrentDungeon()
+    CachedDungeonKey, CachedDungeonDef = MatchDungeonKey((GetInstanceInfo()))
+    if not CachedDungeonKey then
+        CachedDungeonKey, CachedDungeonDef = MatchDungeonKey(GetRealZoneText())
+    end
 end
 
 local questSessionActive = false
@@ -217,6 +211,9 @@ local activeNpcGUID = nil
 local questClickMode = false
 local clickedQuest
 local openedMenus = {}
+-- The quest just turned in, so Shift at the same NPC picks it again.
+local repeatNpc, repeatQuestID, repeatTitle, completingNpc, completingTitle
+local repeating = false
 
 -- [SOURCE-VERIFIED] ClassicAPI Input: the L/R functions are reconciled when
 -- WoW regains focus; stock IsShiftKeyDown can stay down after Alt-Tab.
@@ -225,7 +222,16 @@ local function ShiftDown()
 end
 
 local function QuestNpcGUID()
-    return (UnitGUID and (UnitGUID("npc") or UnitGUID("target"))) or nil
+    return UnitGUID("npc") or UnitGUID("target")
+end
+
+local function ForgetRepeat()
+    repeatNpc, repeatQuestID, repeatTitle, repeating = nil, nil, nil, false
+end
+
+-- True when the quest just turned in belongs to the NPC being talked to.
+local function RepeatHere()
+    return repeatNpc ~= nil and repeatNpc == QuestNpcGUID()
 end
 
 local function ClearQuestClick()
@@ -251,10 +257,12 @@ local function StartQuestSession()
     local npc = QuestNpcGUID()
     if questClickMode then
         ClearQuestClick()
-        -- A returned list waits for another explicit click. A fresh ordinary
+        -- A returned list waits for another explicit click, unless Shift is
+        -- still held to repeat the quest just turned in. A fresh ordinary
         -- interaction or another NPC resumes the established Shift behavior.
-        if npc ~= activeNpcGUID or not ShiftDown() then questClickMode = false end
+        if npc ~= activeNpcGUID or not ShiftDown() or RepeatHere() then questClickMode = false end
     end
+    repeating = false
     if npc ~= activeNpcGUID then table.wipe(openedMenus) end
     activeNpcGUID = npc
     currentQuestSessionToken = currentQuestSessionToken + 1
@@ -360,7 +368,7 @@ function AutoLazy_PrintStatus()
     local questStatus = (AutoLazyDB.Quests and AutoLazyDB.Quests.Enabled) and "|cFF00FF00ON (Shift-click turn-ins)|r" or "|cFFFF2020OFF|r"
     AutoLazy_Print("Auto-roll: " .. masterStatus .. " | Auto-confirm loot: " .. bopStatus .. " | Hide loot roll spam: " .. cleanRollStatus .. " | Quests: " .. questStatus)
 
-    local currentZone = (GetRealZoneText and GetRealZoneText()) or (GetZoneText and GetZoneText()) or "Unknown"
+    local currentZone = GetRealZoneText() or "Unknown"
     if CachedDungeonKey then
         AutoLazy_Print("Current Zone: |cFF00FF00" .. currentZone .. "|r (Listed items: " .. (CachedDungeonDef and CachedDungeonDef.title or CachedDungeonKey) .. ")")
     else
@@ -368,16 +376,14 @@ function AutoLazy_PrintStatus()
     end
 end
 
-local STATIC_POPUPS = { StaticPopup1, StaticPopup2, StaticPopup3, StaticPopup4 }
-
-local function DismissConfirmPopups(rollId)
-    if rollId and StaticPopup_Hide then StaticPopup_Hide("CONFIRM_LOOT_ROLL", rollId) end
-    if StaticPopup_Hide then StaticPopup_Hide("CONFIRM_LOOT_ROLL") end
-    for i = 1, 4 do
-        local popup = STATIC_POPUPS[i] or getglobal("StaticPopup" .. i)
-        if popup and popup:IsShown() and popup.which == "CONFIRM_LOOT_ROLL" then popup:Hide() end
-    end
+-- StaticPopup_Hide hides the shown dialogs of that kind for this roll or
+-- slot (UIParent stores it as data). UIParent may show the dialog after this
+-- handler runs, so hide again on the next frame.
+local function HidePopup(which, data)
+    StaticPopup_Hide(which, data)
+    C_Timer.After(0, function() StaticPopup_Hide(which, data) end)
 end
+local confirmedSlots = {}
 
 --------------------------------------------------------------------------------
 -- Clean Group Loot Roll Presentation
@@ -470,6 +476,8 @@ end
 -- Zul'Gurub Bijou itemIDs (19707 to 19715)
 local ZG_BIJOUS = { 19707, 19708, 19709, 19710, 19711, 19712, 19713, 19714, 19715 }
 
+-- UNVERIFIED: test in game. These item IDs cite no OctoWoW source; check
+-- each one, for example /run print(GetItemInfo(12840)).
 local RepeatableTurnIns = {
     -- Argent Dawn (Scourgestones, Materials, Writs)
     { quest = "minion",            item = 12840, minCount = 20 }, -- Minion's Scourgestone
@@ -481,7 +489,6 @@ local RepeatableTurnIns = {
     { quest = "core of elements",  item = 22527, minCount = 30 }, -- Core of Elements
     { quest = "savage frond",      item = 22529, minCount = 30 }, -- Savage Frond
     { quest = "dark iron scraps",  item = 22528, minCount = 30 }, -- Dark Iron Scraps
-    { quest = "craftsman",         item = "craftsman's writ", minCount = 1 },
 
     -- Winterspring E'ko (Witch Doctor Mau'ari)
     { quest = "frostsaber e'ko",   item = 12430, minCount = 3 },
@@ -613,6 +620,7 @@ local RepeatableTurnIns = {
     },
 }
 
+-- UNVERIFIED: test in game, as for RepeatableTurnIns.
 local GossipTurnInKeywords = {
     -- Lokhtos Darkbargainer (BRD)
     { match = "dark iron residue",     item = 18945, minCount = 4 },
@@ -662,9 +670,6 @@ local function GetPlayerItemCount(target)
             total = total + (C_Item.GetItemCount(target[i]) or 0)
         end
         return total
-    elseif targetType == "string" then
-        if target == "" then return 0 end
-        return C_Item.GetItemCount(target) or 0
     end
     return 0
 end
@@ -678,10 +683,6 @@ local function NormalizeTitle(title)
 end
 
 local function MatchesRepeatableRequirement(title, questID)
-    if type(title) == "table" then
-        questID = title.questID
-        title = title.title
-    end
     local normTitle = NormalizeTitle(title)
     for priority, rep in ipairs(RepeatableTurnIns) do
         local matched = false
@@ -757,6 +758,49 @@ local function MatchesGossipTurnIn(text)
     return false
 end
 
+-- Shift picks the quest just turned in at this NPC again, while it is offered:
+-- a complete active quest, or a repeatable offered as an available quest.
+local function RepeatGossip()
+    if not repeatQuestID or not RepeatHere() then return false end
+    local active = C_GossipInfo.GetActiveQuests()
+    for i = 1, #active do
+        if active[i].questID == repeatQuestID then
+            if not active[i].isComplete then return false end
+            repeating = true
+            C_GossipInfo.SelectActiveQuest(repeatQuestID)
+            return true
+        end
+    end
+    local available = C_GossipInfo.GetAvailableQuests()
+    for i = 1, #available do
+        if available[i].questID == repeatQuestID then
+            repeating = true
+            C_GossipInfo.SelectAvailableQuest(repeatQuestID)
+            return true
+        end
+    end
+    return false
+end
+
+-- The greeting panel lists titles only; repeat a title shown exactly once.
+local function RepeatGreeting()
+    if not repeatTitle or not RepeatHere() then return false end
+    local matches, index, isActive, complete = 0
+    for i = 1, GetNumActiveQuests() do
+        local title, isComplete = GetActiveTitle(i)
+        if title == repeatTitle then
+            matches, index, isActive, complete = matches + 1, i, true, isComplete == 1 or isComplete == true
+        end
+    end
+    for i = 1, GetNumAvailableQuests() do
+        if GetAvailableTitle(i) == repeatTitle then matches, index, isActive = matches + 1, i, false end
+    end
+    if matches ~= 1 or isActive and not complete then return false end
+    repeating = true
+    if isActive then SelectActiveQuest(index) else SelectAvailableQuest(index) end
+    return true
+end
+
 local function ProcessGossip()
     if questClickMode then return false end
     if not ShouldAutoQuest() then return false end
@@ -764,6 +808,7 @@ local function ProcessGossip()
 
     -- 1. Active Quests (Turn-In)
     if AutoLazyDB.Quests.AutoTurnIn then
+        if RepeatGossip() then return "ACTION" end
         local active = C_GossipInfo.GetActiveQuests()
         if active and #active > 0 then
             local completed = {}
@@ -823,7 +868,8 @@ local function ProcessGreeting()
     if not ShouldAutoQuest() then return false end
     local hasWaitingQuests = false
 
-    if AutoLazyDB.Quests.AutoTurnIn and GetNumActiveQuests and GetActiveTitle and SelectActiveQuest then
+    if AutoLazyDB.Quests.AutoTurnIn then
+        if RepeatGreeting() then return "ACTION" end
         local numActive = GetNumActiveQuests()
         if numActive and numActive > 0 then
             local completed = {}
@@ -864,7 +910,7 @@ local function TryQuestChain(token)
         activeNpcGUID = nil
         return
     end
-    local currentGuid = (UnitGUID and (UnitGUID("npc") or UnitGUID("target"))) or nil
+    local currentGuid = QuestNpcGUID()
     if activeNpcGUID and currentGuid and currentGuid ~= activeNpcGUID then
         questSessionActive = false
         activeNpcGUID = nil
@@ -901,6 +947,9 @@ EventFrame:RegisterEvent("QUEST_GREETING")
 EventFrame:RegisterEvent("QUEST_PROGRESS")
 EventFrame:RegisterEvent("QUEST_COMPLETE")
 EventFrame:RegisterEvent("QUEST_FINISHED")
+EventFrame:RegisterEvent("QUEST_DETAIL")
+EventFrame:RegisterEvent("QUEST_TURNED_IN")
+EventFrame:RegisterEvent("LOOT_CLOSED")
 
 EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
     local ev = ev_arg or event
@@ -959,24 +1008,27 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
         local rollType = a2
         if rollId and rollType then
             ConfirmLootRoll(rollId, rollType)
-            DismissConfirmPopups(rollId)
+            HidePopup("CONFIRM_LOOT_ROLL", rollId)
         end
 
     elseif ev == "LOOT_BIND_CONFIRM" then
         if not AutoLazyDB or not AutoLazyDB.Enabled or not AutoLazyDB.AutoConfirmBop then return end
+        -- [SOURCE-VERIFIED] FrameXML StaticPopup.lua: the LOOT_BIND dialog
+        -- accepts with LootSlot(slot). Once per slot and loot window, so a
+        -- repeated request is left to the player.
         local slot = a1
-        if slot and ConfirmLootSlot then
-            ConfirmLootSlot(slot)
-            if StaticPopup_Hide then StaticPopup_Hide("LOOT_BIND") end
-            for i = 1, 4 do
-                local popup = STATIC_POPUPS[i] or getglobal("StaticPopup" .. i)
-                if popup and popup:IsShown() and popup.which == "LOOT_BIND" then popup:Hide() end
-            end
+        if slot and not confirmedSlots[slot] then
+            confirmedSlots[slot] = true
+            LootSlot(slot)
+            HidePopup("LOOT_BIND", slot)
         end
+
+    elseif ev == "LOOT_CLOSED" then
+        table.wipe(confirmedSlots)
 
     elseif ev == "PLAYER_TARGET_CHANGED" then
         if activeNpcGUID then
-            local currentGuid = (UnitGUID and (UnitGUID("npc") or UnitGUID("target"))) or nil
+            local currentGuid = QuestNpcGUID()
             if currentGuid ~= activeNpcGUID then
                 questSessionActive = false
                 ClearQuestClick()
@@ -1013,8 +1065,16 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
         StartQuestSession()
         ProcessGreeting()
 
+    elseif ev == "QUEST_DETAIL" then
+        -- Accepting stays manual. A repeat that asks to be accepted again
+        -- would reopen on every close, so stop repeating it.
+        if repeating then ForgetRepeat() end
+
     elseif ev == "QUEST_PROGRESS" then
-        if questClickMode then
+        if repeating and not IsQuestCompletable() then
+            -- Out of items: leave the dialog open, and do not reopen it.
+            ForgetRepeat()
+        elseif questClickMode then
             local selection = OwnQuestClick()
             if selection and selection.phase == "selected" and IsQuestCompletable() then
                 selection.phase = "progress"
@@ -1023,6 +1083,7 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
         elseif ShouldAutoQuest() and AutoLazyDB.Quests.AutoTurnIn and IsQuestCompletable() then CompleteQuest() end
 
     elseif ev == "QUEST_COMPLETE" then
+        completingNpc, completingTitle = QuestNpcGUID(), GetTitleText()
         local selection
         if questClickMode then
             selection = OwnQuestClick()
@@ -1038,9 +1099,16 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
             elseif not AutoLazyDB.Quests.SafeRewards then
                 GetQuestReward(1)
             else
+                -- Closing without a choice must not reopen it; the turn-in is remembered again.
+                if repeating then ForgetRepeat() end
                 AutoLazy_Print("Quest ready for turn-in: Please choose your reward manually.")
             end
         end
+
+    elseif ev == "QUEST_TURNED_IN" then
+        -- Remember every turn-in, by hand or automatic, for Shift to repeat.
+        repeatNpc, repeatQuestID, repeatTitle = completingNpc or QuestNpcGUID(), a1, completingTitle
+        completingNpc, completingTitle = nil, nil
 
     elseif ev == "QUEST_FINISHED" then
         if questClickMode then
@@ -1065,7 +1133,7 @@ end)
 local function ToggleCleanRollChat()
     AutoLazyDB.CleanRollChat = not AutoLazyDB.CleanRollChat
     AutoLazy_Print("Hide loot roll spam: " .. (AutoLazyDB.CleanRollChat and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
-    if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end
+    AutoLazy_UpdateGUI()
 end
 
 -- Data-Driven Slash Command Dispatcher
@@ -1074,19 +1142,19 @@ local slashToggles = {
     bag = function() AutoLazy_ToggleTray() end,
     collapse = function()
         AutoLazyDB.Tweaks.CollapseAddons = not AutoLazyDB.Tweaks.CollapseAddons
-        if AutoLazy_CollapseAddons then AutoLazy_CollapseAddons(AutoLazyDB.Tweaks.CollapseAddons) end
+        AutoLazy_CollapseAddons(AutoLazyDB.Tweaks.CollapseAddons)
         AutoLazy_Print("Collapse Addons into Tray: " .. (AutoLazyDB.Tweaks.CollapseAddons and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
-        if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end
+        AutoLazy_UpdateGUI()
     end,
     resetpos = function() AutoLazy_ResetActionButtonPos() end,
     reset = function() AutoLazy_ResetActionButtonPos() end,
     toggle = function()
         AutoLazyDB.Enabled = not AutoLazyDB.Enabled
         AutoLazy_Print("Listed item auto-roll is now " .. (AutoLazyDB.Enabled and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
-        if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end
+        AutoLazy_UpdateGUI()
     end,
-    on = function() AutoLazyDB.Enabled = true; AutoLazy_Print("Listed item auto-roll is now |cFF00FF00ENABLED|r."); if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end end,
-    off = function() AutoLazyDB.Enabled = false; AutoLazy_Print("Listed item auto-roll is now |cFFFF2020DISABLED|r."); if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end end,
+    on = function() AutoLazyDB.Enabled = true; AutoLazy_Print("Listed item auto-roll is now |cFF00FF00ENABLED|r."); AutoLazy_UpdateGUI() end,
+    off = function() AutoLazyDB.Enabled = false; AutoLazy_Print("Listed item auto-roll is now |cFFFF2020DISABLED|r."); AutoLazy_UpdateGUI() end,
 
     clean = ToggleCleanRollChat,
     cleanroll = ToggleCleanRollChat,
@@ -1095,37 +1163,37 @@ local slashToggles = {
         AutoLazyDB.Quests.Enabled = not AutoLazyDB.Quests.Enabled
         if not AutoLazyDB.Quests.Enabled then AutoLazy.CancelQuestTurnIn() end
         AutoLazy_Print("Shift-click Quest Turn-ins: " .. (AutoLazyDB.Quests.Enabled and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
-        if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end
+        AutoLazy_UpdateGUI()
     end,
     turnin = function()
         AutoLazyDB.Quests.AutoTurnIn = not AutoLazyDB.Quests.AutoTurnIn
         if not AutoLazyDB.Quests.AutoTurnIn then AutoLazy.CancelQuestTurnIn() end
         AutoLazy_Print("Auto Turn-In: " .. (AutoLazyDB.Quests.AutoTurnIn and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
-        if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end
+        AutoLazy_UpdateGUI()
     end,
     btn = function()
         AutoLazyDB.ShowButton = not AutoLazyDB.ShowButton
         AutoLazy_UpdateActionButton()
         AutoLazy_Print("AutoLazy Button: " .. (AutoLazyDB.ShowButton and "|cFF00FF00SHOWN|r" or "|cFFFF2020HIDDEN|r"))
-        if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end
+        AutoLazy_UpdateGUI()
     end,
     radio = function()
         AutoLazyDB.Tweaks.HideRadio = not AutoLazyDB.Tweaks.HideRadio
         AutoLazy_ApplySystemIconToggles()
         AutoLazy_Print("Hide Booty Bay Radio: " .. (AutoLazyDB.Tweaks.HideRadio and "|cFF00FF00ENABLED (Hidden)|r" or "|cFFFF2020DISABLED (Shown)|r"))
-        if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end
+        AutoLazy_UpdateGUI()
     end,
     lfg = function()
         AutoLazyDB.Tweaks.HideLfg = not AutoLazyDB.Tweaks.HideLfg
         AutoLazy_ApplySystemIconToggles()
         AutoLazy_Print("Hide Group Finder: " .. (AutoLazyDB.Tweaks.HideLfg and "|cFF00FF00ENABLED (Hidden)|r" or "|cFFFF2020DISABLED (Shown)|r"))
-        if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end
+        AutoLazy_UpdateGUI()
     end,
     status = function() AutoLazy_PrintStatus() end,
     bop = function()
         AutoLazyDB.AutoConfirmBop = not AutoLazyDB.AutoConfirmBop
         AutoLazy_Print("Auto-confirm loot: " .. (AutoLazyDB.AutoConfirmBop and "|cFF00FF00ON|r" or "|cFFFF2020OFF|r"))
-        if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end
+        AutoLazy_UpdateGUI()
     end,
 }
 
@@ -1139,7 +1207,7 @@ SlashCmdList["AUTOLAZY"] = function(msg)
     if slashToggles[cmd] then
         slashToggles[cmd]()
     elseif cmd == "" or cmd == "gui" or cmd == "menu" or cmd == "config" or cmd == "options" then
-        if AutoLazy_ToggleGUI then AutoLazy_ToggleGUI() else AutoLazy_PrintStatus() end
+        AutoLazy_ToggleGUI()
     else
         AutoLazy_Print("Commands: /al (options), status, on, off, toggle (auto-roll), bop, clean, quest, turnin, tray, collapse, btn, resetpos, radio, lfg")
     end

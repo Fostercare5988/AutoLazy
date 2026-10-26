@@ -5,12 +5,12 @@ if not AutoLazy then return end
 
 local Tray = {}
 AutoLazy.Tray = Tray
-local records, byFrame, created = {}, {}, {}
+local records, byFrame = {}, {}
 local opened, scanning, refreshPending = false, false, false
 local fullScanPending, registryDirty = false, false
 local layoutPending, closing, loginScanned = false, false, false
 local serial, openEpoch = 0, 0
-local backdrop, launcher
+local backdrop, launcher, controller
 local Refresh, Layout, Reconcile
 
 local excluded = {
@@ -95,15 +95,19 @@ local function RegionVisual(region, borderOnly)
     return string.find(string.lower(texture), "minimap%-trackingborder") ~= nil
 end
 
+-- Regions as arguments, not a table: discovery tests thousands of frames.
+local function AnyRegionVisual(borderOnly, ...)
+    for i = 1, select("#", ...) do
+        if RegionVisual((select(i, ...)), borderOnly) then return true end
+    end
+    return false
+end
+
 local function HasVisual(frame, borderOnly)
     if frame.GetNormalTexture and RegionVisual(frame:GetNormalTexture(), borderOnly) then
         return true
     end
-    local regions = { frame:GetRegions() }
-    for i = 1, table.getn(regions) do
-        if RegionVisual(regions[i], borderOnly) then return true end
-    end
-    return false
+    return AnyRegionVisual(borderOnly, frame:GetRegions())
 end
 
 local function Candidate(frame)
@@ -367,31 +371,53 @@ end
 
 -- A full scan tests a few thousand frames, each with string matching and
 -- native size/script/texture reads: about a quarter second in one go. The walk
--- of the global namespace only collects them; the tests run a few
--- milliseconds per frame until done, so discovery never freezes the client.
+-- of the global namespace and the CreateFrame hook only queue frames; the
+-- tests run a few milliseconds per frame until done, so discovery never
+-- freezes the client.
 local DRAIN_MS = 3
-local clock = debugprofilestop
-local pendingNames, pendingFrames, draining = {}, {}, false
+local queueNames, queueFrames, queued, queueCount, draining = {}, {}, {}, 0, false
+-- Frames that can never be launchers: blocked names and frames that are not
+-- Buttons. Neither changes, so later walks skip them without a native call.
+local rejected = setmetatable({}, { __mode = "k" })
+
+local function Test(name, frame)
+    if byFrame[frame] or rejected[frame] then return end
+    -- Keep excluded names ahead of any proxy method lookup/native call.
+    if BlockedName(name) or not FrameReference(frame) then rejected[frame] = true; return end
+    local ok, button = pcall(frame.IsObjectType, frame, "Button")
+    if not ok then return end
+    if not button then rejected[frame] = true; return end
+    TryEnroll(frame)
+end
 
 local function Drain()
-    local start, count = clock and clock(), 0
-    local n = table.getn(pendingFrames)
-    while n > 0 do
-        local name, frame = pendingNames[n], pendingFrames[n]
-        pendingNames[n], pendingFrames[n] = nil, nil
-        n = n - 1
-        -- Keep excluded names ahead of any proxy method lookup/native call.
-        if not BlockedName(name) then TryEnroll(frame) end
-        count = count + 1
-        if (clock and clock() - start >= DRAIN_MS) or (not clock and count >= 100) then break end
+    local start = debugprofilestop()
+    while queueCount > 0 do
+        local name, frame = queueNames[queueCount], queueFrames[queueCount]
+        queueNames[queueCount], queueFrames[queueCount] = nil, nil
+        queueCount = queueCount - 1
+        queued[frame] = nil
+        Test(name, frame)
+        if debugprofilestop() - start >= DRAIN_MS then break end
     end
-    if n > 0 then
+    if queueCount > 0 then
         C_Timer.After(0, Drain)
         return
     end
     draining = false
     -- Sorts, lays out and updates settings with whatever was found.
     if registryDirty then Refresh(false) end
+end
+
+local function Queue(name, frame)
+    if queued[frame] then return end
+    queued[frame] = true
+    queueCount = queueCount + 1
+    queueNames[queueCount], queueFrames[queueCount] = name, frame
+    if not draining then
+        draining = true
+        C_Timer.After(0, Drain)
+    end
 end
 
 local function Scan(full)
@@ -415,25 +441,14 @@ local function Scan(full)
     if full then
         -- Lifecycle discovery only. Opening the tray and observing a newly
         -- created button must never rescan the client-wide global namespace.
-        -- A newer walk replaces the rest of an unfinished one.
-        local seen, n = {}, 0
-        pendingNames, pendingFrames = {}, {}
         for name, frame in pairs(_G) do
             -- Lua-only checks here; names and native calls wait for Drain.
-            if type(name) == "string" and type(frame) == "table" and
-                type(rawget(frame, 0)) == "userdata" and not byFrame[frame] and not seen[frame] then
-                seen[frame] = true
-                n = n + 1
-                pendingNames[n], pendingFrames[n] = name, frame
+            if type(name) == "string" and type(frame) == "table" and not byFrame[frame] and
+                not rejected[frame] and not queued[frame] and type(rawget(frame, 0)) == "userdata" then
+                Queue(name, frame)
             end
         end
-        if n > 0 and not draining then
-            draining = true
-            C_Timer.After(0, Drain)
-        end
     end
-    for frame in pairs(created) do TryEnroll(frame) end
-    table.wipe(created)
     if registryDirty then
         table.sort(records, function(a, b) return a.name < b.name end)
         registryDirty = false
@@ -447,7 +462,7 @@ end
 
 local function SystemHidden(record)
     local tweaks = AutoLazyDB and AutoLazyDB.Tweaks
-    return record.forcedHidden or tweaks and
+    return tweaks and
         (record.kind == "radio" and tweaks.HideRadio or record.kind == "lfg" and tweaks.HideLfg)
 end
 
@@ -545,7 +560,7 @@ Refresh = function(full)
     if not AutoLazyDB or not AutoLazyDB.Tweaks then return end
     Scan(full)
     Reconcile()
-    if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end
+    AutoLazy_UpdateGUI()
 end
 
 local function QueueRefresh(full)
@@ -558,16 +573,6 @@ local function QueueRefresh(full)
         fullScanPending = false
         Refresh(full)
     end)
-end
-
-function Tray.Register(frame, child)
-    if not FrameReference(frame) or BlockedName(frame:GetName()) then return false end
-    if child and (not FrameReference(child) or child:GetParent() ~= frame or byFrame[child]) then
-        return false
-    end
-    if not Enroll(frame, "addon", child) then return false end
-    QueueRefresh()
-    return true
 end
 
 -- Settings read only the registry. They must never trigger global discovery.
@@ -595,14 +600,16 @@ function Tray.SetKept(frameOrName, keep)
     elseif record then record.kept = keep and true or false
     else return false end
     Reconcile()
-    if AutoLazy_UpdateGUI then AutoLazy_UpdateGUI() end
+    AutoLazy_UpdateGUI()
     return true
 end
 
+-- Clicks outside close the tray, so they are watched only while it is open.
 function Tray.Close()
     if closing then return end
     closing, opened = true, false
     openEpoch = openEpoch + 1
+    if controller then controller:UnregisterEvent("GLOBAL_MOUSE_UP") end
     backdrop:Hide()
     Reconcile()
     closing = false
@@ -611,6 +618,7 @@ end
 function Tray.Open()
     opened = true
     openEpoch = openEpoch + 1
+    controller:RegisterEvent("GLOBAL_MOUSE_UP")
     Reconcile()
     if not opened then AutoLazy_Print("No icons are available in the tray.") end
 end
@@ -627,38 +635,8 @@ function AutoLazy_CollapseAddons(enable)
     Reconcile()
 end
 
-function AutoLazy_FindAddonButtons()
-    Scan(true)
-    local active, result = ActiveRecords(), {}
-    for i = 1, table.getn(active) do result[i] = active[i].frame end
-    return result
-end
-
 function AutoLazy_ApplySystemIconToggles() Reconcile() end
-AutoLazy_OpenTray, AutoLazy_CloseTray, AutoLazy_ToggleTray = Tray.Open, Tray.Close, Tray.Toggle
-Tray.Rescan = function() Refresh(true) end
-AutoLazy.IsRadioFrame = function(frame)
-    return FrameReference(frame) and radioNames[frame:GetName()] == true
-end
-AutoLazy.IsLfgFrame = function(frame)
-    return FrameReference(frame) and lfgNames[frame:GetName()] == true
-end
-AutoLazy.IsValidAddonButton = function(frame)
-    local ok, valid = pcall(Candidate, frame)
-    return ok and valid and not AutoLazy.IsRadioFrame(frame) and not AutoLazy.IsLfgFrame(frame)
-end
-AutoLazy.IsAnchoredToMinimap = function(frame)
-    if not FrameReference(frame) then return false end
-    local ok, valid = pcall(AnchoredToMinimap, frame)
-    return ok and valid
-end
-AutoLazy.SetFrameSuppressed = function(frame, hide)
-    if not FrameReference(frame) or BlockedName(frame:GetName()) then return end
-    local record = Enroll(frame)
-    if not record then return end
-    record.forcedHidden = hide and true or false
-    Reconcile()
-end
+AutoLazy_ToggleTray = Tray.Toggle
 
 backdrop = CreateFrame("Frame", "AutoLazy_ButtonTray", UIParent)
 backdrop:SetFrameStrata("DIALOG")
@@ -731,13 +709,12 @@ launcher:SetScript("OnEnter", function()
 end)
 launcher:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-local controller = CreateFrame("Frame", "AutoLazy_TrayController", UIParent)
+controller = CreateFrame("Frame", "AutoLazy_TrayController", UIParent)
 controller:RegisterEvent("ADDON_LOADED")
 controller:RegisterEvent("VARIABLES_LOADED")
 controller:RegisterEvent("PLAYER_ENTERING_WORLD")
 controller:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-controller:RegisterEvent("GLOBAL_MOUSE_UP")
-controller:SetScript("OnEvent", function(_, eventName)
+controller:SetScript("OnEvent", function(_, eventName, addon)
     local ev = eventName or event
     if ev == "GLOBAL_MOUSE_UP" then
         if not opened or backdrop:IsMouseOver() or launcher:IsMouseOver() then return end
@@ -745,6 +722,12 @@ controller:SetScript("OnEvent", function(_, eventName)
         -- down event could hide an addon's child menu before its click-up.
         local epoch = openEpoch
         C_Timer.After(0, function() if opened and openEpoch == epoch then Tray.Close() end end)
+    elseif ev == "ADDON_LOADED" and loginScanned and
+        string.find(addon or arg1 or "", "^Blizzard_") then
+        -- Load-on-demand Blizzard windows (trade skills, talents, inspect)
+        -- bring no launchers; skip the client-wide walk. Lua-created
+        -- buttons still arrive through CreateFrame.
+        return
     elseif ev == "ADDON_LOADED" or ev == "VARIABLES_LOADED" or not loginScanned then
         QueueRefresh(true)
         if ev == "PLAYER_ENTERING_WORLD" then
@@ -765,9 +748,7 @@ local originalCreateFrame = CreateFrame
 CreateFrame = function(...)
     local frameType, name = arg[1], arg[2]
     local frame = originalCreateFrame(unpack(arg, 1, arg.n))
-    if frameType == "Button" and not BlockedName(name) then
-        created[frame] = true
-        QueueRefresh()
-    end
+    -- Tested in Drain's batches; a refresh follows only if one is enrolled.
+    if frameType == "Button" then Queue(name, frame) end
     return frame
 end

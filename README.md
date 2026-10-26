@@ -7,7 +7,7 @@ For **World of Warcraft 1.12.1** with [ClassicAPI 1.17.7+](https://github.com/br
 - **Hide loot roll spam.** Keep the winner, item loot and money messages.
 - **Auto-roll farm items.** Choose Need, Greed, Pass or Manual in Black Morass, ZG, AQ20 and Naxxramas. Gear rolls stay manual.
 - **Clean up your minimap.** Put addon buttons in one tray and choose which icons stay on the minimap. Hide Pirate Radio and Group Finder if you want.
-- **Turn in quests with Shift.** Hold Shift when talking to an NPC. Shift-right-click a quest title to turn in that selected quest once, including repeatables. Accept new quests and choose multiple rewards yourself.
+- **Turn in quests with Shift.** Hold Shift when talking to an NPC. Keep holding Shift to turn in the same quest again, such as a repeatable. Shift-right-click a quest title to pick which one. Accept new quests and choose multiple rewards yourself.
 
 ## Install
 
@@ -15,7 +15,7 @@ For **World of Warcraft 1.12.1** with [ClassicAPI 1.17.7+](https://github.com/br
 
 ## Use
 
-Type **`/al`** to open settings.
+Type **`/al`** to open settings, or use **Game Menu > AddOn Options > AutoLazy**.
 
 To keep an icon such as ItemRack out of the tray: **Minimap > Choose minimap icons**, then check its name.
 

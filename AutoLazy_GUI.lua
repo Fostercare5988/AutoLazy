@@ -457,7 +457,7 @@ local function CreateOptions()
             for key, button in pairs(dungeonButtons) do
                 Select(button, key == selectedDungeonKey)
             end
-            local items = AutoLazy_DungeonItems[selectedDungeonKey]
+            local items = AutoLazy.DungeonItems[selectedDungeonKey]
             for i = 1, 4 do
                 local row, item = itemRows[i], items[i]
                 if item then
@@ -487,7 +487,7 @@ local function CreateOptions()
     -- Quests: keep existing settings and dim dependent choices when disabled.
     Heading(tabQuests, "Quest turn-ins", 28, -98)
     local cbQuestMaster = Checkbox("AutoLazy_QuestMaster", tabQuests, "Enable Shift-click",
-        "Hold Shift when talking to an NPC for turn-ins and supported gossip shortcuts. Shift-right-click a quest name to turn in that selected quest once.", 28, -128, function(value)
+        "Hold Shift when talking to an NPC for turn-ins and supported gossip shortcuts. Keep holding Shift to turn in the same quest again. Shift-right-click a quest name to pick which one.", 28, -128, function(value)
             AutoLazyDB.Quests.Enabled = value
             if not value then AutoLazy.CancelQuestTurnIn() end
         end, 300)
@@ -500,7 +500,7 @@ local function CreateOptions()
         "Pause if multiple rewards are offered. Turning this off selects the first reward automatically.", 44, -196, function(value)
             AutoLazyDB.Quests.SafeRewards = value
         end, 300)
-    Label(tabQuests, "Shift-right-click a quest name: one selected turn-in per click.\nNew quests are accepted manually.", 28, -232, "GameFontDisableSmall")
+    Label(tabQuests, "Shift-right-click a quest name to pick it. Hold Shift to repeat it.\nNew quests are accepted manually.", 28, -232, "GameFontDisableSmall")
     local function RefreshQuests()
         local quests = AutoLazyDB.Quests
         Sync(cbQuestMaster, quests.Enabled)
@@ -534,3 +534,22 @@ function AutoLazy_ToggleGUI()
     if not panel then CreateOptions() end
     if panel:IsShown() then panel:Hide() else panel:Show() end
 end
+
+-- Game Menu > AddOn Options > AutoLazy (ClassicAPI InterfaceOptions_AddCategory).
+local entry = CreateFrame("Frame", "AutoLazyOptionsEntry")
+entry.name = "AutoLazy"
+local entryTitle = entry:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+entryTitle:SetPoint("TOPLEFT", entry, "TOPLEFT", 16, -16)
+entryTitle:SetText("AutoLazy")
+local entryText = entry:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+entryText:SetPoint("TOPLEFT", entryTitle, "BOTTOMLEFT", 0, -8)
+entryText:SetText("Settings open in their own window. Type /al to open them at any time.")
+local open = Button("AutoLazyOptionsOpen", entry, "Open settings", 16, -70, 172, function()
+    if InterfaceOptionsFrame:IsShown() then InterfaceOptionsFrame:Hide() end
+    if GameMenuFrame:IsShown() then HideUIPanel(GameMenuFrame) end
+    if not AutoLazyDB then return end
+    if not panel then CreateOptions() end
+    panel:Show()
+end)
+Select(open, true)
+InterfaceOptions_AddCategory(entry)
