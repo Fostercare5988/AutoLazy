@@ -112,8 +112,10 @@ local function Candidate(frame)
     if MinimapRoot(parent) or AnchoredToMinimap(frame) then
         -- Map pins from quest, gathering and note addons are clickable minimap
         -- buttons too. A launcher can be dragged around the minimap, or wears
-        -- the standard minimap button border; a pin is neither.
-        return frame:IsMovable() or HasVisual(frame, true)
+        -- the standard minimap button border; a pin is neither. Some launchers
+        -- drag themselves from OnDragStart without being movable (AtlasLoot,
+        -- ActionBarProfiles) and draw the border into their own art.
+        return frame:IsMovable() or frame:GetScript("OnDragStart") ~= nil or HasVisual(frame, true)
     end
     -- UIParent icons need the specific launcher border; an arbitrary
     -- action button or map pin is not identified by size alone.
