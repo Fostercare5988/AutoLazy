@@ -2,7 +2,7 @@
 
 Dungeon loot automation, Shift-click quest turn-ins and a minimap button tray. Its options layout is the
 model for the shared ForgeUI kit. Regression tests: `regressions/AutoLazy` in
-VanillaForge (17 tests).
+VanillaForge (18 tests).
 
 | File | Job |
 | --- | --- |
@@ -20,5 +20,8 @@ Things to know:
   Keep that split. Frames that are not Buttons, or have blocked names, are
   remembered in `rejected` and never tested again. After login, a `Blizzard_*`
   load-on-demand addon does not start a walk.
+- A button on the minimap joins the tray only if it is movable or has the
+  standard minimap button border, so other addons' map pins stay put.
+- Functions shared between the files live in the `AutoLazy` table, not in globals.
 - The repo uses sparse checkout: `tests/` and `.dev/` exist in git but not in
   the game folder.
