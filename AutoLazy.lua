@@ -939,7 +939,6 @@ EventFrame:RegisterEvent("CONFIRM_LOOT_ROLL")
 EventFrame:RegisterEvent("LOOT_BIND_CONFIRM")
 EventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 EventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-EventFrame:RegisterEvent("ZONE_CHANGED")
 EventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
 EventFrame:RegisterEvent("GOSSIP_SHOW")
 EventFrame:RegisterEvent("GOSSIP_CLOSED")
@@ -968,7 +967,8 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
         UpdateZoneCache()
         AutoLazy_ApplySystemIconToggles()
 
-    elseif ev == "ZONE_CHANGED_NEW_AREA" or ev == "ZONE_CHANGED" then
+    -- A subzone change (ZONE_CHANGED) changes neither the instance nor the zone name.
+    elseif ev == "ZONE_CHANGED_NEW_AREA" then
         UpdateZoneCache()
 
     elseif ev == "START_LOOT_ROLL" then
