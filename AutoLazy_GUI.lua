@@ -134,7 +134,7 @@ local function Checkbox(name, parent, text, tip, x, y, onClick, hitWidth)
             local clicked = self or this or widget
             Paint(clicked)
             onClick(Checked(clicked))
-            AutoLazy_UpdateGUI()
+            AutoLazy.UpdateGUI()
         end)
     end
     Paint(widget)
@@ -244,7 +244,7 @@ local function CreateOptions()
         tabs[i]:SetScript("OnClick", function()
             keepMode = false
             AutoLazyDB.SelectedTab = index
-            AutoLazy_UpdateGUI()
+            AutoLazy.UpdateGUI()
         end)
     end
 
@@ -252,24 +252,24 @@ local function CreateOptions()
     Heading(tabTweaks, "Addon tray", 28, -98)
     local cbCollapse = Checkbox("AutoLazy_ToggleCollapse", tabTweaks, "Collapse minimap addons",
         "Keep addon minimap buttons in the tray. Turn off to restore their positions.", 28, -122, function(value)
-            AutoLazy_CollapseAddons(value)
+            AutoLazy.CollapseAddons(value)
         end)
-    Button("AutoLazy_BtnOpenTray", tabTweaks, "Toggle tray", 300, -120, 172, AutoLazy_ToggleTray)
+    Button("AutoLazy_BtnOpenTray", tabTweaks, "Toggle tray", 300, -120, 172, AutoLazy.ToggleTray)
     local cbShowBtn = Checkbox("AutoLazy_ToggleShowBtn", tabTweaks, "Show floating button",
         "Left-click for the tray, right-click for options, or drag to move.", 28, -158, function(value)
             AutoLazyDB.ShowButton = value
-            AutoLazy_UpdateActionButton()
+            AutoLazy.UpdateActionButton()
         end)
-    Button("AutoLazy_BtnResetBtnPos", tabTweaks, "Reset position", 300, -156, 172, AutoLazy_ResetActionButtonPos)
+    Button("AutoLazy_BtnResetBtnPos", tabTweaks, "Reset position", 300, -156, 172, AutoLazy.ResetActionButtonPos)
     local cbHideRadio = Checkbox("AutoLazy_ToggleHideRadio", tabTweaks, "Hide Pirate Radio",
         "Hide the Pirate Radio icon, including its tray entry.", 28, -202, function(value)
             AutoLazyDB.Tweaks.HideRadio = value
-            AutoLazy_ApplySystemIconToggles()
+            AutoLazy.ApplySystemIconToggles()
         end)
     local cbHideLfg = Checkbox("AutoLazy_ToggleHideLfg", tabTweaks, "Hide Group Finder",
         "Hide the Group Finder / LFT icon, including its tray entry.", 264, -202, function(value)
             AutoLazyDB.Tweaks.HideLfg = value
-            AutoLazy_ApplySystemIconToggles()
+            AutoLazy.ApplySystemIconToggles()
         end, 174)
     Label(tabTweaks, "Left-click: tray   /   Right-click: options   /   Drag: move", 28, -240, "GameFontDisableSmall")
     local function RefreshMinimap()
@@ -281,7 +281,7 @@ local function CreateOptions()
 
     local keepButton = Button("AutoLazy_BtnKeepIcons", tabTweaks, "Choose minimap icons", 0, 0, 172, function()
         keepMode, keepPage = true, 1
-        AutoLazy_UpdateGUI()
+        AutoLazy.UpdateGUI()
     end)
     keepButton:ClearAllPoints()
     keepButton:SetPoint("BOTTOMLEFT", tabTweaks, "BOTTOMLEFT", 28, 18)
@@ -332,17 +332,17 @@ local function CreateOptions()
         end
         local back = Button("AutoLazy_KeepIconsBack", picker, "Back", 0, 0, 104, function()
             keepMode = false
-            AutoLazy_UpdateGUI()
+            AutoLazy.UpdateGUI()
         end)
         back:ClearAllPoints(); back:SetPoint("BOTTOMLEFT", picker, "BOTTOMLEFT", 28, 18)
         local previous = Button("AutoLazy_KeepIconsPrevious", picker, "Previous", 0, 0, 84, function()
             keepPage = keepPage - 1
-            AutoLazy_UpdateGUI()
+            AutoLazy.UpdateGUI()
         end)
         previous:ClearAllPoints(); previous:SetPoint("BOTTOMLEFT", picker, "BOTTOMLEFT", 156, 18)
         local nextPage = Button("AutoLazy_KeepIconsNext", picker, "Next", 0, 0, 84, function()
             keepPage = keepPage + 1
-            AutoLazy_UpdateGUI()
+            AutoLazy.UpdateGUI()
         end)
         nextPage:ClearAllPoints(); nextPage:SetPoint("BOTTOMLEFT", picker, "BOTTOMLEFT", 252, 18)
         RefreshPicker = function()
@@ -521,15 +521,15 @@ local function CreateOptions()
             refreshTab[index]()
         end
     end
-    panel:SetScript("OnShow", function() AutoLazy_UpdateGUI() end)
+    panel:SetScript("OnShow", function() AutoLazy.UpdateGUI() end)
     panel:SetScript("OnHide", function() keepMode = false end)
 end
 
-function AutoLazy_UpdateGUI()
+function AutoLazy.UpdateGUI()
     if panel and panel:IsShown() and AutoLazyDB then Refresh() end
 end
 
-function AutoLazy_ToggleGUI()
+function AutoLazy.ToggleGUI()
     if not AutoLazyDB then return end
     if not panel then CreateOptions() end
     if panel:IsShown() then panel:Hide() else panel:Show() end

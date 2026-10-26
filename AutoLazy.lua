@@ -110,7 +110,7 @@ end
 local CachedDungeonKey = nil
 local CachedDungeonDef = nil
 
-function AutoLazy_Print(msg)
+function AutoLazy.Print(msg)
     if DEFAULT_CHAT_FRAME then
         DEFAULT_CHAT_FRAME:AddMessage("|cFF33FF99[AutoLazy]|r " .. tostring(msg))
     end
@@ -125,11 +125,6 @@ local function InitDB()
     if AutoLazyDB.SelectedTab == nil then AutoLazyDB.SelectedTab = defaultDB.SelectedTab end
     if AutoLazyDB.ShowButton == nil then AutoLazyDB.ShowButton = defaultDB.ShowButton end
     if not AutoLazyDB.ButtonPos then AutoLazyDB.ButtonPos = {} end
-
-    -- Purge obsolete config keys
-    AutoLazyDB.AnnounceChat = nil
-    AutoLazyDB.CleanLoot = nil
-    AutoLazyDB.FarmOnly = nil
 
     if not AutoLazyDB.Tweaks then AutoLazyDB.Tweaks = {} end
     if AutoLazyDB.Tweaks.HideRadio == nil then AutoLazyDB.Tweaks.HideRadio = defaultDB.Tweaks.HideRadio end
@@ -147,36 +142,16 @@ local function InitDB()
     for ruleKey in pairs(AutoLazyDB.ItemRules) do
         if defaultDB.ItemRules[ruleKey] == nil then AutoLazyDB.ItemRules[ruleKey] = nil end
     end
-    local migratingLootRules = AutoLazyDB.LootRulesVersion ~= 2
-    for dKey, items in pairs(DungeonItems) do
-        local oldDungeon = AutoLazyDB.Dungeons and AutoLazyDB.Dungeons[dKey]
-        local oldFallback = oldDungeon and oldDungeon.NonNeedMode or "MANUAL"
-        if oldFallback ~= "GREED" and oldFallback ~= "PASS" then oldFallback = "MANUAL" end
-        local wasDisabled = oldDungeon and (oldDungeon.Enabled == false or oldDungeon.Mode == "OFF")
-        for _, itm in ipairs(items) do
-            local ruleKey = itm.key or string.lower(itm.name)
-            local action = AutoLazyDB.ItemRules[ruleKey]
-            if migratingLootRules then
-                if wasDisabled then
-                    action = "MANUAL"
-                elseif action == true then
-                    action = "NEED"
-                elseif action == false then
-                    action = oldFallback
-                end
-            end
-            if action ~= "MANUAL" and action ~= "NEED" and action ~= "GREED" and action ~= "PASS" then
-                action = defaultDB.ItemRules[ruleKey]
-            end
-            AutoLazyDB.ItemRules[ruleKey] = action
+    for ruleKey, default in pairs(defaultDB.ItemRules) do
+        local action = AutoLazyDB.ItemRules[ruleKey]
+        if action ~= "MANUAL" and action ~= "NEED" and action ~= "GREED" and action ~= "PASS" then
+            AutoLazyDB.ItemRules[ruleKey] = default
         end
     end
-    AutoLazyDB.Dungeons = nil
-    AutoLazyDB.LootRulesVersion = 2
+    -- The marker of the retired 1.2.0 loot-rule migration.
+    AutoLazyDB.LootRulesVersion = nil
 
     if not AutoLazyDB.Quests then AutoLazyDB.Quests = {} end
-    AutoLazyDB.Quests.AutoAccept = nil
-    AutoLazyDB.Quests.AlwaysActive = nil
     for qk, qv in pairs(defaultDB.Quests) do
         if AutoLazyDB.Quests[qk] == nil then AutoLazyDB.Quests[qk] = qv end
     end
@@ -358,7 +333,7 @@ local function InstallQuestClicks()
     end
 end
 
-function AutoLazy_PrintStatus()
+local function PrintStatus()
     if not AutoLazyDB then InitDB() end
     UpdateZoneCache()
 
@@ -366,13 +341,13 @@ function AutoLazy_PrintStatus()
     local bopStatus = AutoLazyDB.AutoConfirmBop and "|cFF00FF00ON|r" or "|cFFFF2020OFF|r"
     local cleanRollStatus = AutoLazyDB.CleanRollChat and "|cFF00FF00ON|r" or "|cFFFF2020OFF|r"
     local questStatus = (AutoLazyDB.Quests and AutoLazyDB.Quests.Enabled) and "|cFF00FF00ON (Shift-click turn-ins)|r" or "|cFFFF2020OFF|r"
-    AutoLazy_Print("Auto-roll: " .. masterStatus .. " | Auto-confirm loot: " .. bopStatus .. " | Hide loot roll spam: " .. cleanRollStatus .. " | Quests: " .. questStatus)
+    AutoLazy.Print("Auto-roll: " .. masterStatus .. " | Auto-confirm loot: " .. bopStatus .. " | Hide loot roll spam: " .. cleanRollStatus .. " | Quests: " .. questStatus)
 
     local currentZone = GetRealZoneText() or "Unknown"
     if CachedDungeonKey then
-        AutoLazy_Print("Current Zone: |cFF00FF00" .. currentZone .. "|r (Listed items: " .. (CachedDungeonDef and CachedDungeonDef.title or CachedDungeonKey) .. ")")
+        AutoLazy.Print("Current Zone: |cFF00FF00" .. currentZone .. "|r (Listed items: " .. (CachedDungeonDef and CachedDungeonDef.title or CachedDungeonKey) .. ")")
     else
-        AutoLazy_Print("Current Zone: |cFFFF8080" .. currentZone .. "|r (No listed items here)")
+        AutoLazy.Print("Current Zone: |cFFFF8080" .. currentZone .. "|r (No listed items here)")
     end
 end
 
@@ -960,12 +935,12 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
         InstallQuestClicks()
         HookChatFrameEvents()
         UpdateZoneCache()
-        AutoLazy_UpdateActionButton()
-        AutoLazy_ApplySystemIconToggles()
+        AutoLazy.UpdateActionButton()
+        AutoLazy.ApplySystemIconToggles()
 
     elseif ev == "PLAYER_ENTERING_WORLD" then
         UpdateZoneCache()
-        AutoLazy_ApplySystemIconToggles()
+        AutoLazy.ApplySystemIconToggles()
 
     -- A subzone change (ZONE_CHANGED) changes neither the instance nor the zone name.
     elseif ev == "ZONE_CHANGED_NEW_AREA" then
@@ -1101,7 +1076,7 @@ EventFrame:SetScript("OnEvent", function(self, ev_arg, a1_arg, a2_arg)
             else
                 -- Closing without a choice must not reopen it; the turn-in is remembered again.
                 if repeating then ForgetRepeat() end
-                AutoLazy_Print("Quest ready for turn-in: Please choose your reward manually.")
+                AutoLazy.Print("Quest ready for turn-in: Please choose your reward manually.")
             end
         end
 
@@ -1132,29 +1107,29 @@ end)
 
 local function ToggleCleanRollChat()
     AutoLazyDB.CleanRollChat = not AutoLazyDB.CleanRollChat
-    AutoLazy_Print("Hide loot roll spam: " .. (AutoLazyDB.CleanRollChat and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
-    AutoLazy_UpdateGUI()
+    AutoLazy.Print("Hide loot roll spam: " .. (AutoLazyDB.CleanRollChat and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
+    AutoLazy.UpdateGUI()
 end
 
 -- Data-Driven Slash Command Dispatcher
 local slashToggles = {
-    tray = function() AutoLazy_ToggleTray() end,
-    bag = function() AutoLazy_ToggleTray() end,
+    tray = function() AutoLazy.ToggleTray() end,
+    bag = function() AutoLazy.ToggleTray() end,
     collapse = function()
         AutoLazyDB.Tweaks.CollapseAddons = not AutoLazyDB.Tweaks.CollapseAddons
-        AutoLazy_CollapseAddons(AutoLazyDB.Tweaks.CollapseAddons)
-        AutoLazy_Print("Collapse Addons into Tray: " .. (AutoLazyDB.Tweaks.CollapseAddons and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
-        AutoLazy_UpdateGUI()
+        AutoLazy.CollapseAddons(AutoLazyDB.Tweaks.CollapseAddons)
+        AutoLazy.Print("Collapse Addons into Tray: " .. (AutoLazyDB.Tweaks.CollapseAddons and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
+        AutoLazy.UpdateGUI()
     end,
-    resetpos = function() AutoLazy_ResetActionButtonPos() end,
-    reset = function() AutoLazy_ResetActionButtonPos() end,
+    resetpos = function() AutoLazy.ResetActionButtonPos() end,
+    reset = function() AutoLazy.ResetActionButtonPos() end,
     toggle = function()
         AutoLazyDB.Enabled = not AutoLazyDB.Enabled
-        AutoLazy_Print("Listed item auto-roll is now " .. (AutoLazyDB.Enabled and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
-        AutoLazy_UpdateGUI()
+        AutoLazy.Print("Listed item auto-roll is now " .. (AutoLazyDB.Enabled and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
+        AutoLazy.UpdateGUI()
     end,
-    on = function() AutoLazyDB.Enabled = true; AutoLazy_Print("Listed item auto-roll is now |cFF00FF00ENABLED|r."); AutoLazy_UpdateGUI() end,
-    off = function() AutoLazyDB.Enabled = false; AutoLazy_Print("Listed item auto-roll is now |cFFFF2020DISABLED|r."); AutoLazy_UpdateGUI() end,
+    on = function() AutoLazyDB.Enabled = true; AutoLazy.Print("Listed item auto-roll is now |cFF00FF00ENABLED|r."); AutoLazy.UpdateGUI() end,
+    off = function() AutoLazyDB.Enabled = false; AutoLazy.Print("Listed item auto-roll is now |cFFFF2020DISABLED|r."); AutoLazy.UpdateGUI() end,
 
     clean = ToggleCleanRollChat,
     cleanroll = ToggleCleanRollChat,
@@ -1162,38 +1137,38 @@ local slashToggles = {
     quest = function()
         AutoLazyDB.Quests.Enabled = not AutoLazyDB.Quests.Enabled
         if not AutoLazyDB.Quests.Enabled then AutoLazy.CancelQuestTurnIn() end
-        AutoLazy_Print("Shift-click Quest Turn-ins: " .. (AutoLazyDB.Quests.Enabled and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
-        AutoLazy_UpdateGUI()
+        AutoLazy.Print("Shift-click Quest Turn-ins: " .. (AutoLazyDB.Quests.Enabled and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
+        AutoLazy.UpdateGUI()
     end,
     turnin = function()
         AutoLazyDB.Quests.AutoTurnIn = not AutoLazyDB.Quests.AutoTurnIn
         if not AutoLazyDB.Quests.AutoTurnIn then AutoLazy.CancelQuestTurnIn() end
-        AutoLazy_Print("Auto Turn-In: " .. (AutoLazyDB.Quests.AutoTurnIn and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
-        AutoLazy_UpdateGUI()
+        AutoLazy.Print("Auto Turn-In: " .. (AutoLazyDB.Quests.AutoTurnIn and "|cFF00FF00ENABLED|r" or "|cFFFF2020DISABLED|r"))
+        AutoLazy.UpdateGUI()
     end,
     btn = function()
         AutoLazyDB.ShowButton = not AutoLazyDB.ShowButton
-        AutoLazy_UpdateActionButton()
-        AutoLazy_Print("AutoLazy Button: " .. (AutoLazyDB.ShowButton and "|cFF00FF00SHOWN|r" or "|cFFFF2020HIDDEN|r"))
-        AutoLazy_UpdateGUI()
+        AutoLazy.UpdateActionButton()
+        AutoLazy.Print("AutoLazy Button: " .. (AutoLazyDB.ShowButton and "|cFF00FF00SHOWN|r" or "|cFFFF2020HIDDEN|r"))
+        AutoLazy.UpdateGUI()
     end,
     radio = function()
         AutoLazyDB.Tweaks.HideRadio = not AutoLazyDB.Tweaks.HideRadio
-        AutoLazy_ApplySystemIconToggles()
-        AutoLazy_Print("Hide Booty Bay Radio: " .. (AutoLazyDB.Tweaks.HideRadio and "|cFF00FF00ENABLED (Hidden)|r" or "|cFFFF2020DISABLED (Shown)|r"))
-        AutoLazy_UpdateGUI()
+        AutoLazy.ApplySystemIconToggles()
+        AutoLazy.Print("Hide Booty Bay Radio: " .. (AutoLazyDB.Tweaks.HideRadio and "|cFF00FF00ENABLED (Hidden)|r" or "|cFFFF2020DISABLED (Shown)|r"))
+        AutoLazy.UpdateGUI()
     end,
     lfg = function()
         AutoLazyDB.Tweaks.HideLfg = not AutoLazyDB.Tweaks.HideLfg
-        AutoLazy_ApplySystemIconToggles()
-        AutoLazy_Print("Hide Group Finder: " .. (AutoLazyDB.Tweaks.HideLfg and "|cFF00FF00ENABLED (Hidden)|r" or "|cFFFF2020DISABLED (Shown)|r"))
-        AutoLazy_UpdateGUI()
+        AutoLazy.ApplySystemIconToggles()
+        AutoLazy.Print("Hide Group Finder: " .. (AutoLazyDB.Tweaks.HideLfg and "|cFF00FF00ENABLED (Hidden)|r" or "|cFFFF2020DISABLED (Shown)|r"))
+        AutoLazy.UpdateGUI()
     end,
-    status = function() AutoLazy_PrintStatus() end,
+    status = function() PrintStatus() end,
     bop = function()
         AutoLazyDB.AutoConfirmBop = not AutoLazyDB.AutoConfirmBop
-        AutoLazy_Print("Auto-confirm loot: " .. (AutoLazyDB.AutoConfirmBop and "|cFF00FF00ON|r" or "|cFFFF2020OFF|r"))
-        AutoLazy_UpdateGUI()
+        AutoLazy.Print("Auto-confirm loot: " .. (AutoLazyDB.AutoConfirmBop and "|cFF00FF00ON|r" or "|cFFFF2020OFF|r"))
+        AutoLazy.UpdateGUI()
     end,
 }
 
@@ -1207,9 +1182,9 @@ SlashCmdList["AUTOLAZY"] = function(msg)
     if slashToggles[cmd] then
         slashToggles[cmd]()
     elseif cmd == "" or cmd == "gui" or cmd == "menu" or cmd == "config" or cmd == "options" then
-        AutoLazy_ToggleGUI()
+        AutoLazy.ToggleGUI()
     else
-        AutoLazy_Print("Commands: /al (options), status, on, off, toggle (auto-roll), bop, clean, quest, turnin, tray, collapse, btn, resetpos, radio, lfg")
+        AutoLazy.Print("Commands: /al (options), status, on, off, toggle (auto-roll), bop, clean, quest, turnin, tray, collapse, btn, resetpos, radio, lfg")
     end
 end
 

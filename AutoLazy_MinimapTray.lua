@@ -29,7 +29,7 @@ local excluded = {
 }
 -- Launchers matched by name, wherever they sit. Buttons parented or
 -- anchored to the minimap are found without one.
-local known = { pfQuestIcon = true, AutoBG_QuickQueueButton = true }
+local known = { AutoBG_QuickQueueButton = true }
 -- [SOURCE-VERIFIED] OctoWoW client FrameXML: EverlookBroadcastingCo.xml
 -- (the radio) and LFT/LFT.xml (the group finder).
 local radioNames = { EBC_Minimap = true }
@@ -40,7 +40,6 @@ local function BlockedName(name)
     local lower = string.lower(name)
     return excluded[name] or string.find(lower, "^autolazy") or
         string.find(lower, "dropdown") or string.find(lower, "tooltip") or
-        string.find(lower, "^pfminimappin%d") or string.find(lower, "^pfmappin%d") or
         string.find(lower, "^worldstate") or
         string.find(lower, "^ticketstatus") or string.find(lower, "^gametime")
 end
@@ -102,9 +101,6 @@ local function Candidate(frame)
     if not FrameReference(frame) then return false end
     local name = frame:GetName()
     if BlockedName(name) then return false end
-    -- [SOURCE-VERIFIED] pfQuest/map.lua: clickable quest/map nodes are
-    -- Button frames too; their node data identifies map content, not a hub.
-    if rawget(frame, "minimap") and rawget(frame, "node") then return false end
     if not frame:IsObjectType("Button") then return false end
     local width, height = frame:GetWidth(), frame:GetHeight()
     if width < 16 or height < 16 or width > 64 or height > 64 then return false end
@@ -113,7 +109,12 @@ local function Candidate(frame)
     if name and (known[name] or radioNames[name] or lfgNames[name] or
         string.find(name, "^LibDBIcon10_")) then return true end
     local parent = frame:GetParent()
-    if MinimapRoot(parent) or AnchoredToMinimap(frame) then return true end
+    if MinimapRoot(parent) or AnchoredToMinimap(frame) then
+        -- Map pins from quest, gathering and note addons are clickable minimap
+        -- buttons too. A launcher can be dragged around the minimap, or wears
+        -- the standard minimap button border; a pin is neither.
+        return frame:IsMovable() or HasVisual(frame, true)
+    end
     -- UIParent icons need the specific launcher border; an arbitrary
     -- action button or map pin is not identified by size alone.
     return parent == UIParent and (HasVisual(frame, true) or name and
@@ -548,7 +549,7 @@ Refresh = function(full)
     if not AutoLazyDB or not AutoLazyDB.Tweaks then return end
     Scan(full)
     Reconcile()
-    AutoLazy_UpdateGUI()
+    AutoLazy.UpdateGUI()
 end
 
 local function QueueRefresh(full)
@@ -588,7 +589,7 @@ function Tray.SetKept(frameOrName, keep)
     elseif record then record.kept = keep and true or false
     else return false end
     Reconcile()
-    AutoLazy_UpdateGUI()
+    AutoLazy.UpdateGUI()
     return true
 end
 
@@ -608,14 +609,14 @@ function Tray.Open()
     openEpoch = openEpoch + 1
     controller:RegisterEvent("GLOBAL_MOUSE_UP")
     Reconcile()
-    if not opened then AutoLazy_Print("No icons are available in the tray.") end
+    if not opened then AutoLazy.Print("No icons are available in the tray.") end
 end
 
 function Tray.Toggle()
     if opened then Tray.Close() else Tray.Open() end
 end
 
-function AutoLazy_CollapseAddons(enable)
+function AutoLazy.CollapseAddons(enable)
     if enable ~= nil and AutoLazyDB and AutoLazyDB.Tweaks then
         AutoLazyDB.Tweaks.CollapseAddons = enable and true or false
     end
@@ -623,8 +624,8 @@ function AutoLazy_CollapseAddons(enable)
     Reconcile()
 end
 
-function AutoLazy_ApplySystemIconToggles() Reconcile() end
-AutoLazy_ToggleTray = Tray.Toggle
+function AutoLazy.ApplySystemIconToggles() Reconcile() end
+AutoLazy.ToggleTray = Tray.Toggle
 
 backdrop = CreateFrame("Frame", "AutoLazy_ButtonTray", UIParent)
 backdrop:SetFrameStrata("DIALOG")
@@ -659,7 +660,7 @@ border:SetWidth(53)
 border:SetHeight(53)
 border:SetPoint("TOPLEFT", launcher, "TOPLEFT", 0, 0)
 
-function AutoLazy_UpdateActionButton()
+function AutoLazy.UpdateActionButton()
     if not AutoLazyDB then return end
     if AutoLazyDB.ShowButton == false then launcher:Hide(); Tray.Close(); return end
     launcher:ClearAllPoints()
@@ -670,11 +671,11 @@ function AutoLazy_UpdateActionButton()
     launcher:Show()
 end
 
-function AutoLazy_ResetActionButtonPos()
+function AutoLazy.ResetActionButtonPos()
     if not AutoLazyDB then return end
     AutoLazyDB.ButtonPos = {}
-    AutoLazy_UpdateActionButton()
-    AutoLazy_Print("AutoLazy button position reset to top right.")
+    AutoLazy.UpdateActionButton()
+    AutoLazy.Print("AutoLazy button position reset to top right.")
 end
 
 launcher:SetScript("OnDragStart", function() Tray.Close(); launcher:StartMoving() end)
@@ -685,7 +686,7 @@ launcher:SetScript("OnDragStop", function()
     end
 end)
 launcher:SetScript("OnClick", function(_, button)
-    if (button or arg1) == "RightButton" then AutoLazy_ToggleGUI() else Tray.Toggle() end
+    if (button or arg1) == "RightButton" then AutoLazy.ToggleGUI() else Tray.Toggle() end
 end)
 launcher:SetScript("OnEnter", function()
     GameTooltip:SetOwner(launcher, "ANCHOR_LEFT")
