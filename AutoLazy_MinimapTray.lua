@@ -16,36 +16,24 @@ local Refresh, Layout, Reconcile
 local excluded = {
     UIParent = true, WorldFrame = true, Minimap = true,
     MinimapCluster = true, MinimapBackdrop = true, MinimapZoomIn = true,
-    MinimapZoomOut = true, GameTimeFrame = true, TimeManagerClockButton = true,
-    MiniMapTrackingFrame = true, MiniMapTracking = true,
+    MinimapZoomOut = true, GameTimeFrame = true, MiniMapTrackingFrame = true,
     MiniMapMeetingStoneFrame = true, MiniMapMailFrame = true,
-    MiniMapBattlefieldFrame = true, MiniMapWorldMapButton = true,
-    MiniMapPing = true, MinimapZoneTextButton = true, MinimapToggleButton = true,
-    TicketStatusFrame = true, TicketStatusFrameButton = true, WorldStateFrame = true,
-    MinimapZoneText = true, MinimapToggle = true, MinimapBorderTop = true,
+    MiniMapBattlefieldFrame = true, MiniMapPing = true,
+    MinimapZoneTextButton = true, MinimapToggleButton = true,
+    TicketStatusFrame = true, WorldStateFrame = true,
+    MinimapZoneText = true, MinimapBorderTop = true,
     MinimapBorder = true, MiniMapTrackingBorder = true, MiniMapTrackingIcon = true,
     MiniMapMailIcon = true, MiniMapMailBorder = true, MiniMapBattlefieldIcon = true,
     MiniMapBattlefieldBorder = true, MiniMapMeetingStoneIcon = true,
     FCTweaksMinimapClock = true, MinimapClock = true,
 }
-local known = {
-    AtlasButton = true, AtlasMinimapButton = true, pfQuestIcon = true,
-    GearRackMinimapButton = true,
-    SW_IconFrame = true, AutoBG_QuickQueueButton = true,
-}
-local radioNames = {
-    EBC_Minimap = true, PirateRadioMinimapButton = true, RadioMinimapButton = true,
-    BBRadioMinimapButton = true, BBPR_MinimapButton = true, Radio_MinimapButton = true,
-    TWRadioMinimapButton = true, TW_RadioMinimapButton = true,
-    TurtleRadioMinimapButton = true, TWBBRadioMinimapButton = true,
-    BootyBayRadioMinimapButton = true,
-}
-local lfgNames = {
-    LFTMinimapButton = true, LFT_MinimapButton = true, TW_LFGBtn = true,
-    TWLFG_Minimap = true, TWLFG_MinimapButton = true, MiniMapLFGFrame = true,
-    LFGMinimapButton = true, TurtleLFGMinimapButton = true,
-    GroupFinderMinimapButton = true,
-}
+-- Launchers matched by name, wherever they sit. Buttons parented or
+-- anchored to the minimap are found without one.
+local known = { pfQuestIcon = true, AutoBG_QuickQueueButton = true }
+-- [SOURCE-VERIFIED] OctoWoW client FrameXML: EverlookBroadcastingCo.xml
+-- (the radio) and LFT/LFT.xml (the group finder).
+local radioNames = { EBC_Minimap = true }
+local lfgNames = { LFTMinimapButton = true }
 
 local function BlockedName(name)
     if not name then return false end
