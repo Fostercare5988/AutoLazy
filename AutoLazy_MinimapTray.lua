@@ -1,6 +1,8 @@
 -- AutoLazy minimap tray, WoW 1.12.1 Build 5875 / ClassicAPI 1.17.7+.
--- Discovery uses Lua references only. Never enumerate the engine frame tree.
--- Native parents and foreign click/hover/drag scripts remain untouched.
+-- Discovery reads the global namespace, the children of the three minimap
+-- frames and new Lua-created Buttons. It never walks UIParent or the whole
+-- frame tree. Native parents and foreign click/hover/drag scripts remain
+-- untouched.
 if not AutoLazy then return end
 
 local Tray = {}
@@ -401,13 +403,22 @@ local function Drain()
 end
 
 local function Queue(name, frame)
-    if queued[frame] then return end
+    if queued[frame] or byFrame[frame] or rejected[frame] then return end
     queued[frame] = true
     queueCount = queueCount + 1
     queueNames[queueCount], queueFrames[queueCount] = name, frame
     if not draining then
         draining = true
         C_Timer.After(0, Drain)
+    end
+end
+
+-- Children as arguments, not a table. The name comes first so blocked
+-- frames are skipped before any other native call.
+local function QueueChildren(...)
+    for i = 1, select("#", ...) do
+        local frame = select(i, ...)
+        if not byFrame[frame] and not rejected[frame] then Queue(frame:GetName(), frame) end
     end
 end
 
@@ -439,6 +450,10 @@ local function Scan(full)
                 Queue(name, frame)
             end
         end
+        -- Unnamed launchers are not globals; the minimap frames list them.
+        QueueChildren(Minimap:GetChildren())
+        QueueChildren(MinimapBackdrop:GetChildren())
+        QueueChildren(MinimapCluster:GetChildren())
     end
     if registryDirty then
         table.sort(records, function(a, b) return a.name < b.name end)
@@ -471,10 +486,19 @@ local labelSuffixes = {
     "_iconframe", "iconframe", "_minimapicon", "minimapicon", "_minimap", "minimap",
     "_icon", "icon",
 }
+-- An unnamed icon is labelled after its image file, such as "AtlasLootMinimap".
+local function TextureLabel(frame)
+    local texture = frame.GetNormalTexture and frame:GetNormalTexture()
+    local path = texture and texture:GetTexture()
+    if type(path) ~= "string" then return nil end
+    local _, _, file = string.find(path, "([^\\/]+)$")
+    return file
+end
+
 local function LauncherLabel(record)
     if record.kind == "radio" then return "Pirate Radio" end
     if record.kind == "lfg" then return "Group Finder" end
-    local label = record.key or record.name
+    local label = record.key or TextureLabel(record.frame) or record.name
     label = string.gsub(label, "^LibDBIcon10_", "")
     local lower = string.lower(label)
     for i = 1, table.getn(labelSuffixes) do
