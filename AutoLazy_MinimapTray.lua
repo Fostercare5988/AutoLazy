@@ -1,4 +1,4 @@
--- AutoLazy minimap tray, WoW 1.12.1 Build 5875 / ClassicAPI 1.17.7+.
+-- AutoLazy minimap tray, WoW 1.12.1 Build 5875 / ClassicAPI 1.17.11+.
 -- Discovery reads the global namespace, the children of the three minimap
 -- frames and new Lua-created Buttons. It never walks UIParent or the whole
 -- frame tree. Native parents and foreign click/hover/drag scripts remain
