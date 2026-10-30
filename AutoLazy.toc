@@ -1,9 +1,8 @@
 ## X-Maintainer: Fostercare5988
 ## Interface: 11200
-## X-ClassicAPI-Min-Version: 1.17.11
 ## Dependencies: !!!ClassicAPI
 ## Title: |cffff9e38AutoLazy|r |cffffd6a8[Fostercare5988]|r
-## Notes: Loot automation, Shift-click quest turn-ins, and a reversible minimap addon tray (ClassicAPI v1.17.11+).
+## Notes: Loot automation, Shift-click quest turn-ins, and a reversible minimap addon tray (ClassicAPI).
 ## Author: Fostercare5988
 ## Version: 1.3.0
 ## SavedVariables: AutoLazyDB
