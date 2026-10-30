@@ -1,4 +1,4 @@
--- AutoLazy surfaces, WoW 1.12.1 / ClassicAPI 1.17.11+.
+-- AutoLazy surfaces, WoW 1.12.1 / ClassicAPI.
 -- Rounded shapes are nine-slices of one white disc, tinted per use, so any
 -- size keeps crisp corners. Shared by the options window and the tray.
 if not AutoLazy then return end
