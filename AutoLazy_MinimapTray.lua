@@ -362,11 +362,10 @@ local function TryEnroll(frame)
     Enroll(frame, radioNames[name] and "radio" or lfgNames[name] and "lfg" or "addon")
 end
 
--- A full scan tests a few thousand frames, each with string matching and
--- native size/script/texture reads: about a quarter second in one go. The walk
--- of the global namespace and the CreateFrame hook only queue frames; the
--- tests run a few milliseconds per frame until done, so discovery never
--- freezes the client.
+-- Each queued frame is tested with string matching and native
+-- size/script/texture reads. The scan and the CreateFrame hook only queue
+-- frames; the tests run a few milliseconds per frame until done, so discovery
+-- never freezes the client.
 local DRAIN_MS = 3
 local queueNames, queueFrames, queued, queueCount, draining = {}, {}, {}, 0, false
 -- Frames that can never be launchers: blocked names and frames that are not
@@ -413,13 +412,20 @@ local function Queue(name, frame)
     end
 end
 
--- Children as arguments, not a table. The name comes first so blocked
--- frames are skipped before any other native call.
+-- Children by index: UIParent has hundreds, and select(i, ...) would copy
+-- them all for each one. The name comes first so blocked frames are skipped
+-- before any other native call.
 local function QueueChildren(...)
-    for i = 1, select("#", ...) do
-        local frame = select(i, ...)
+    for i = 1, arg.n do
+        local frame = arg[i]
         if not byFrame[frame] and not rejected[frame] then Queue(frame:GetName(), frame) end
     end
+end
+
+-- Candidate only accepts a launcher on the minimap frames or on UIParent.
+local function LauncherParent(parent)
+    if type(parent) == "string" then parent = getglobal(parent) end
+    return MinimapRoot(parent) or parent == UIParent
 end
 
 local function Scan(full)
@@ -441,19 +447,17 @@ local function Scan(full)
         if FrameReference(frame) then Enroll(frame, "lfg") end
     end
     if full then
-        -- Lifecycle discovery only. Opening the tray and observing a newly
-        -- created button must never rescan the client-wide global namespace.
-        for name, frame in pairs(_G) do
-            -- Lua-only checks here; names and native calls wait for Drain.
-            if type(name) == "string" and type(frame) == "table" and not byFrame[frame] and
-                not rejected[frame] and not queued[frame] and type(rawget(frame, 0)) == "userdata" then
-                Queue(name, frame)
-            end
+        -- Lifecycle discovery only; opening the tray never rescans. A launcher
+        -- is a child of the minimap frames or UIParent (Candidate), so their
+        -- children are all there is to test, not every global in the client.
+        for name in pairs(known) do
+            local frame = getglobal(name)
+            if FrameReference(frame) then Queue(name, frame) end
         end
-        -- Unnamed launchers are not globals; the minimap frames list them.
         QueueChildren(Minimap:GetChildren())
         QueueChildren(MinimapBackdrop:GetChildren())
         QueueChildren(MinimapCluster:GetChildren())
+        QueueChildren(UIParent:GetChildren())
     end
     if registryDirty then
         table.sort(records, function(a, b) return a.name < b.name end)
@@ -761,9 +765,10 @@ end)
 -- return-preserving wrapper is needed: hooksecurefunc does not expose results.
 local originalCreateFrame = CreateFrame
 CreateFrame = function(...)
-    local frameType, name = arg[1], arg[2]
+    local frameType, name, parent = arg[1], arg[2], arg[3]
     local frame = originalCreateFrame(unpack(arg, 1, arg.n))
     -- Tested in Drain's batches; a refresh follows only if one is enrolled.
-    if frameType == "Button" then Queue(name, frame) end
+    -- Buttons for nameplates, auras and bars have other parents and skip it.
+    if frameType == "Button" and (LauncherParent(parent) or name and known[name]) then Queue(name, frame) end
     return frame
 end
