@@ -147,6 +147,7 @@ local function Capture(frame)
         points = ReadPoints(frame), width = frame:GetWidth(), height = frame:GetHeight(),
         alpha = frame:GetAlpha(), strata = frame:GetFrameStrata(), level = frame:GetFrameLevel(),
         mouse = frame:IsMouseEnabled(), shown = frame:IsShown() and true or false,
+        scale = frame:GetScale(),
     }
 end
 
@@ -167,6 +168,7 @@ local function NativeProperties(node)
     methods.SetFrameStrata(frame, source.strata)
     methods.SetFrameLevel(frame, source.level)
     methods.EnableMouse(frame, source.mouse)
+    frame:SetScale(source.scale)
 end
 
 local function WantsVisible(record)
@@ -189,6 +191,9 @@ local function ApplyDock(record)
         if node.frame:GetAlpha() ~= node.source.alpha then node.methods.SetAlpha(node.frame, node.source.alpha) end
         if not node.frame:IsMouseEnabled() then node.methods.EnableMouse(node.frame, true) end
     end
+    -- A button on a scaled map would dock at the map's size: scale it to the tray's.
+    local want = root.frame:GetScale() * backdrop:GetEffectiveScale() / root.frame:GetEffectiveScale()
+    if math.abs(want - root.frame:GetScale()) > 0.001 then root.frame:SetScale(want) end
     -- Native OnShow handlers may re-anchor themselves. Position after those
     -- handlers finish, within the same Lua dispatch and before rendering.
     local ratio = backdrop:GetEffectiveScale() / root.frame:GetEffectiveScale()
@@ -532,8 +537,8 @@ Layout = function(active)
     local cols, cell, margin = math.min(count, 4), 36, 7
     for i = 1, count do
         local node = active[i].nodes[1]
-        local ratio = node.frame:GetEffectiveScale() / backdrop:GetEffectiveScale()
-        cell = math.max(cell, node.source.width * ratio + 8, node.source.height * ratio + 8)
+        -- Docked buttons are scaled to the tray's own size (ApplyDock).
+        cell = math.max(cell, node.source.width + 8, node.source.height + 8)
     end
     backdrop:SetWidth(margin * 2 + cols * cell)
     backdrop:SetHeight(margin * 2 + math.ceil(count / cols) * cell)
