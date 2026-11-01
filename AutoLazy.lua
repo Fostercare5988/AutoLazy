@@ -56,21 +56,21 @@ local DungeonDefinitions = {
 -- [SOURCE-VERIFIED] Item identities: https://octowow.st/db/
 local DungeonItems = {
     ["The Black Morass"] = {
-        { id = 50203, name = "Corrupted Sand", texture = "Interface\\Icons\\INV_enchant_dustsoul", quality = 2, defaultNeed = true },
+        { id = 50203, name = "Corrupted Sand", texture = "Interface\\Icons\\INV_enchant_dustsoul", quality = 2, defaultNeed = false, defaultRule = "PASS" },
     },
     ["Zul'Gurub"] = {
         { id = 19707, lastID = 19715, name = "Bijous", texture = "Interface\\Icons\\INV_Bijou_Gold", quality = 3, defaultNeed = true, key = "zg bijous" },
         { id = 19698, lastID = 19706, name = "Coins", texture = "Interface\\Icons\\INV_Misc_ArmorKit_11", quality = 2, defaultNeed = true, key = "zg coins" },
     },
     ["Ruins of Ahn'Qiraj"] = {
-        { id = 20858, lastID = 20865, name = "Scarabs", texture = "Interface\\Icons\\INV_Scarab_Stone", quality = 2, defaultNeed = true, key = "aq20 scarabs" },
+        { id = 20858, lastID = 20865, name = "Scarabs", texture = "Interface\\Icons\\INV_Scarab_Stone", quality = 2, defaultNeed = false, key = "aq20 scarabs" },
         { id = 20866, lastID = 20873, name = "Idols", texture = "Interface\\Icons\\INV_Misc_Idol_01", quality = 3, defaultNeed = false, key = "aq20 idols" },
     },
     ["Naxxramas"] = {
-        { id = 22376, name = "Wartorn Cloth Scrap", texture = "Interface\\Icons\\INV_Misc_WartornScrap_Cloth", quality = 3, defaultNeed = true, key = "wartorn cloth scrap" },
-        { id = 22373, name = "Wartorn Leather Scrap", texture = "Interface\\Icons\\INV_Misc_WartornScrap_Leather", quality = 3, defaultNeed = true, key = "wartorn leather scrap" },
-        { id = 22374, name = "Wartorn Chain Scrap", texture = "Interface\\Icons\\INV_Misc_WartornScrap_Chain", quality = 3, defaultNeed = true, key = "wartorn chain scrap" },
-        { id = 22375, name = "Wartorn Plate Scrap", texture = "Interface\\Icons\\INV_Misc_WartornScrap_Plate", quality = 3, defaultNeed = true, key = "wartorn plate scrap" },
+        { id = 22376, name = "Wartorn Cloth Scrap", texture = "Interface\\Icons\\INV_Misc_WartornScrap_Cloth", quality = 3, defaultNeed = false, key = "wartorn cloth scrap" },
+        { id = 22373, name = "Wartorn Leather Scrap", texture = "Interface\\Icons\\INV_Misc_WartornScrap_Leather", quality = 3, defaultNeed = false, key = "wartorn leather scrap" },
+        { id = 22374, name = "Wartorn Chain Scrap", texture = "Interface\\Icons\\INV_Misc_WartornScrap_Chain", quality = 3, defaultNeed = false, key = "wartorn chain scrap" },
+        { id = 22375, name = "Wartorn Plate Scrap", texture = "Interface\\Icons\\INV_Misc_WartornScrap_Plate", quality = 3, defaultNeed = false, key = "wartorn plate scrap" },
     },
 }
 
@@ -79,12 +79,15 @@ AutoLazy.DungeonItems = DungeonItems
 local defaultDB = {
     Enabled = true,
     AutoConfirmBop = true,
-    CleanRollChat = true,
+    CleanRollChat = false,
     SelectedTab = 1,
     ShowButton = true,
+    -- The author's button position (pixels from the bottom left). Used only when the
+    -- screen can hold it; otherwise the button starts at the top right.
+    ButtonPos = { x = 1577.78, y = 626.16 },
     Tweaks = {
-        HideRadio = false,
-        HideLfg   = false,
+        HideRadio = true,
+        HideLfg   = true,
         CollapseAddons = true,
     },
     ItemRules = {},
@@ -99,7 +102,7 @@ local RuleDungeons, RuleItems = {}, {}
 for dungeon, items in pairs(DungeonItems) do
     for _, item in ipairs(items) do
         local key = item.key or string_lower(item.name)
-        defaultDB.ItemRules[key] = item.defaultNeed and "NEED" or "MANUAL"
+        defaultDB.ItemRules[key] = item.defaultRule or (item.defaultNeed and "NEED" or "MANUAL")
         RuleDungeons[key] = dungeon
         -- These token groups have contiguous IDs; specific items have one ID.
         for id = item.id, item.lastID or item.id do RuleItems[id] = key end
@@ -123,7 +126,14 @@ local function InitDB()
     if AutoLazyDB.CleanRollChat == nil then AutoLazyDB.CleanRollChat = defaultDB.CleanRollChat end
     if AutoLazyDB.SelectedTab == nil then AutoLazyDB.SelectedTab = defaultDB.SelectedTab end
     if AutoLazyDB.ShowButton == nil then AutoLazyDB.ShowButton = defaultDB.ShowButton end
-    if not AutoLazyDB.ButtonPos then AutoLazyDB.ButtonPos = {} end
+    if not AutoLazyDB.ButtonPos then
+        local default = defaultDB.ButtonPos
+        if default.x < GetScreenWidth() - 40 and default.y < GetScreenHeight() - 40 then
+            AutoLazyDB.ButtonPos = { x = default.x, y = default.y }
+        else
+            AutoLazyDB.ButtonPos = {}
+        end
+    end
 
     if not AutoLazyDB.Tweaks then AutoLazyDB.Tweaks = {} end
     if AutoLazyDB.Tweaks.HideRadio == nil then AutoLazyDB.Tweaks.HideRadio = defaultDB.Tweaks.HideRadio end
