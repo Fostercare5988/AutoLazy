@@ -84,7 +84,7 @@ local defaultDB = {
     ShowButton = true,
     -- The author's button position (pixels from the bottom left). Used only when the
     -- screen can hold it; otherwise the button starts at the top right.
-    ButtonPos = { x = 1577.78, y = 626.16 },
+    ButtonPos = { x = 1417.11, y = 928.56 },
     Tweaks = {
         HideRadio = true,
         HideLfg   = true,
