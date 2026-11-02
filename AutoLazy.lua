@@ -21,7 +21,7 @@ AutoLazy = {}
 -- Standard library and engine upvalues for high-frequency execution
 local string_find, string_lower = string.find, string.lower
 local table_insert = table.insert
-local type, pairs, ipairs, getglobal = type, pairs, ipairs, getglobal
+local type, pairs, ipairs = type, pairs, ipairs
 
 -- 1.12.1 Binary Loot Roll Constants
 local LOOT_ROLL_PASS  = 0
@@ -414,7 +414,7 @@ local function InitLootChatPatterns()
     suppressedLootPatterns = {}
     for i = 1, #ROLL_FORMAT_KEYS do
         local key = ROLL_FORMAT_KEYS[i]
-        local fmt = getglobal(key)
+        local fmt = _G[key]
         if fmt and type(fmt) == "string" then
             local pat = FormatToPattern(fmt)
             if pat then

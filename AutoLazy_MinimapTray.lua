@@ -70,7 +70,7 @@ end
 local function AnchoredToMinimap(frame)
     for i = 1, frame:GetNumPoints() do
         local _, relative = frame:GetPoint(i)
-        if type(relative) == "string" then relative = getglobal(relative) end
+        if type(relative) == "string" then relative = _G[relative] end
         if MinimapRoot(relative) then return true end
     end
     return false
@@ -429,7 +429,7 @@ end
 
 -- Candidate only accepts a launcher on the minimap frames or on UIParent.
 local function LauncherParent(parent)
-    if type(parent) == "string" then parent = getglobal(parent) end
+    if type(parent) == "string" then parent = _G[parent] end
     return MinimapRoot(parent) or parent == UIParent
 end
 
@@ -438,17 +438,17 @@ local function Scan(full)
     scanning = true
     -- [SOURCE-VERIFIED] AtlasLoot.xml: container owns visibility/position;
     -- the named child owns the native input scripts.
-    local atlas, atlasClick = getglobal("AtlasLootMinimapButtonFrame"), getglobal("AtlasLootMinimapButton")
+    local atlas, atlasClick = AtlasLootMinimapButtonFrame, AtlasLootMinimapButton
     if FrameReference(atlas) and FrameReference(atlasClick) and
         atlasClick:GetParent() == atlas and not byFrame[atlasClick] then
         Enroll(atlas, "addon", atlasClick)
     end
     for name in pairs(radioNames) do
-        local frame = getglobal(name)
+        local frame = _G[name]
         if FrameReference(frame) then Enroll(frame, "radio") end
     end
     for name in pairs(lfgNames) do
-        local frame = getglobal(name)
+        local frame = _G[name]
         if FrameReference(frame) then Enroll(frame, "lfg") end
     end
     if full then
@@ -456,7 +456,7 @@ local function Scan(full)
         -- is a child of the minimap frames or UIParent (Candidate), so their
         -- children are all there is to test, not every global in the client.
         for name in pairs(known) do
-            local frame = getglobal(name)
+            local frame = _G[name]
             if FrameReference(frame) then Queue(name, frame) end
         end
         QueueChildren(Minimap:GetChildren())
