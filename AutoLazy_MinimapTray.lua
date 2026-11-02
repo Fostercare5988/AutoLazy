@@ -512,8 +512,8 @@ local function LauncherLabel(record)
     local lower = string.lower(label)
     for i = 1, table.getn(labelSuffixes) do
         local suffix = labelSuffixes[i]
-        if string.len(label) > string.len(suffix) and string.sub(lower, -string.len(suffix)) == suffix then
-            label = string.sub(label, 1, string.len(label) - string.len(suffix))
+        if #label > #suffix and string.sub(lower, -#suffix) == suffix then
+            label = string.sub(label, 1, #label - #suffix)
             break
         end
     end
@@ -770,8 +770,8 @@ end)
 -- return-preserving wrapper is needed: hooksecurefunc does not expose results.
 local originalCreateFrame = CreateFrame
 CreateFrame = function(...)
-    local frameType, name, parent = arg[1], arg[2], arg[3]
-    local frame = originalCreateFrame(unpack(arg, 1, arg.n))
+    local frameType, name, parent = ...
+    local frame = originalCreateFrame(...)
     -- Tested in Drain's batches; a refresh follows only if one is enrolled.
     -- Buttons for nameplates, auras and bars have other parents and skip it.
     if frameType == "Button" and (LauncherParent(parent) or name and known[name]) then Queue(name, frame) end

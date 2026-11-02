@@ -400,7 +400,7 @@ local function FormatToPattern(fmt)
         -- Parse placeholders before escaping literal text, including %% and
         -- localized numbered forms such as %2$s. Never emit capture references.
         local first, last, spec = string.find(fmt, "%%[%d%$]*([sd%%])", cursor)
-        local literal = string.sub(fmt, cursor, first and first - 1 or string.len(fmt))
+        local literal = string.sub(fmt, cursor, first and first - 1 or #fmt)
         parts[#parts + 1] = string.gsub(literal, "([%%%(%)%.%+%-%*%?%[%]%^%$])", "%%%1")
         if not first then break end
         parts[#parts + 1] = spec == "s" and ".+" or spec == "d" and "%d+" or "%%"
