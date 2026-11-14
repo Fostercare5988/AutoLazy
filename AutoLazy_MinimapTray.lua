@@ -29,9 +29,6 @@ local excluded = {
     MiniMapBattlefieldBorder = true, MiniMapMeetingStoneIcon = true,
     FCTweaksMinimapClock = true, MinimapClock = true,
 }
--- Launchers matched by name, wherever they sit. Buttons parented or
--- anchored to the minimap are found without one.
-local known = { AutoBG_QuickQueueButton = true }
 -- [SOURCE-VERIFIED] OctoWoW client FrameXML: EverlookBroadcastingCo.xml
 -- (the radio) and LFT/LFT.xml (the group finder).
 local radioNames = { EBC_Minimap = true }
@@ -108,7 +105,7 @@ local function Candidate(frame)
     if width < 16 or height < 16 or width > 64 or height > 64 then return false end
     if not frame:GetScript("OnClick") and not frame:GetScript("OnMouseUp") then return false end
     if not HasVisual(frame, false) then return false end
-    if name and (known[name] or radioNames[name] or lfgNames[name] or
+    if name and (radioNames[name] or lfgNames[name] or
         string.find(name, "^LibDBIcon10_")) then return true end
     local parent = frame:GetParent()
     if MinimapRoot(parent) or AnchoredToMinimap(frame) then
@@ -455,10 +452,6 @@ local function Scan(full)
         -- Lifecycle discovery only; opening the tray never rescans. A launcher
         -- is a child of the minimap frames or UIParent (Candidate), so their
         -- children are all there is to test, not every global in the client.
-        for name in pairs(known) do
-            local frame = _G[name]
-            if FrameReference(frame) then Queue(name, frame) end
-        end
         QueueChildren(Minimap:GetChildren())
         QueueChildren(MinimapBackdrop:GetChildren())
         QueueChildren(MinimapCluster:GetChildren())
@@ -774,6 +767,6 @@ CreateFrame = function(...)
     local frame = originalCreateFrame(...)
     -- Tested in Drain's batches; a refresh follows only if one is enrolled.
     -- Buttons for nameplates, auras and bars have other parents and skip it.
-    if frameType == "Button" and (LauncherParent(parent) or name and known[name]) then Queue(name, frame) end
+    if frameType == "Button" and LauncherParent(parent) then Queue(name, frame) end
     return frame
 end
