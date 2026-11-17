@@ -1,0 +1,12 @@
+## Interface: 11200
+## Title: |cffff9e38AutoLazy|r |cffffd6a8[Fostercare5988]|r
+## Notes: Rolls on farm items, accepts bind-on-pickup, hides roll spam, Shift turn-ins and a minimap button tray
+## Author: Fostercare5988
+## X-Maintainer: Fostercare5988
+## Version: 1.0.0
+## SavedVariables: AutoLazyDB
+## LoadSavedVariablesFirst: 1
+Core.lua
+Loot.lua
+Quests.lua
+Tray.lua
