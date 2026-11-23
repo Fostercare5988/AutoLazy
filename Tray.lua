@@ -39,9 +39,10 @@ launcher:SetMovable(true)
 launcher:SetClampedToScreen(true)
 launcher:RegisterForDrag("LeftButton")
 launcher:RegisterForClicks("LeftButtonUp", "RightButtonUp")
--- Until dragged; then the client keeps its place in layout-cache.txt per character.
--- UNVERIFIED: that the client saves a frame made by Lua at load (FostercareTweaks.md 4.10).
-launcher:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -220, -20)
+-- Until dragged, where the player placed it on their main (Claude, 2026-11-23),
+-- against the top right so it fits any screen; then the client keeps its place
+-- in layout-cache.txt per character.
+launcher:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -167, -225)
 local icon = launcher:CreateTexture(nil, "BACKGROUND")
 icon:SetTexture("Interface\\Icons\\INV_Misc_Bag_08")
 icon:SetWidth(20)

@@ -3,7 +3,7 @@
 ## Notes: Rolls on farm items, accepts bind-on-pickup, hides roll spam, Shift turn-ins and a minimap button tray
 ## Author: Fostercare5988
 ## X-Maintainer: Fostercare5988
-## Version: 1.0.1
+## Version: 1.0.2
 ## SavedVariables: AutoLazyDB
 ## LoadSavedVariablesFirst: 1
 Core.lua
