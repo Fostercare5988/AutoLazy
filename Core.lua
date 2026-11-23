@@ -1,6 +1,6 @@
 -- AutoLazy: farm-item rolls, bind-on-pickup warnings, quiet roll chat, Shift
 -- turn-ins and one tray for the minimap buttons. Its page in ClassicAPI's
--- Settings window (AddOn Options, or /al).
+-- Settings window (AddOn Options, /autolazy, or /al when no other addon has it).
 -- Doc headings are ClassicAPI's docs/API.md; "FrameXML" is the client's own code.
 if not CLASSIC_API_VERSION then error("AutoLazy needs ClassicAPI.", 0) end
 
@@ -78,5 +78,25 @@ function AL.OpenPage()
     if category then Settings.OpenToCategory(category:GetID()) end
 end
 
-SLASH_AUTOLAZY1 = "/al"
+-- /autolazy always; /al too, unless another addon claims it (AtlasLoot does). The chat
+-- box runs the first match in SlashCmdList's hash order (FrameXML ChatFrame.lua:2235),
+-- so a shared command picks a winner by chance. Asked at login, once every addon is in.
+SLASH_AUTOLAZY1 = "/autolazy"
 SlashCmdList.AUTOLAZY = AL.OpenPage
+
+local function Claimed(command)
+    for key in pairs(SlashCmdList) do
+        local i = 1
+        while key ~= "AUTOLAZY" and _G["SLASH_" .. key .. i] do
+            if strlower(_G["SLASH_" .. key .. i]) == command then return true end
+            i = i + 1
+        end
+    end
+end
+
+local login = CreateFrame("Frame")
+login:RegisterEvent("PLAYER_LOGIN")
+login:SetScript("OnEvent", function()
+    this:UnregisterEvent("PLAYER_LOGIN")
+    if not Claimed("/al") then SLASH_AUTOLAZY2 = "/al" end
+end)

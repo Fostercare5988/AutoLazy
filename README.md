@@ -16,7 +16,7 @@ For **World of Warcraft 1.12.1** with [ClassicAPI](https://github.com/brues-code
 
 ## Use
 
-Type **`/al`**, or open **Game Menu > AddOn Options > AutoLazy**.
+Type **`/autolazy`** (or **`/al`** when AtlasLoot, or another addon, does not use it), or open **Game Menu > AddOn Options > AutoLazy**.
 
 The AutoLazy button: **left-click** for the tray, **right-click** for the settings, **drag** to move it. A click outside the tray or Escape closes it.
 
